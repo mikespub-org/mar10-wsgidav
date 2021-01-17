@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# (c) 2009-2020 Martin Wendt and contributors; see WsgiDAV https://github.com/mar10/wsgidav
+# (c) 2009-2021 Martin Wendt and contributors; see WsgiDAV https://github.com/mar10/wsgidav
 # Licensed under the MIT license:
 # http://www.opensource.org/licenses/mit-license.php
 """
@@ -12,16 +12,16 @@
         (successor of http://pythonpaste.org/testing-applications.html)
 """
 from __future__ import print_function
-from tempfile import gettempdir
-from wsgidav import compat, util
-from wsgidav.fs_dav_provider import FilesystemProvider
-from wsgidav.wsgidav_app import WsgiDAVApp
 
 import os
 import shutil
 import sys
 import unittest
+from tempfile import gettempdir
 
+from wsgidav import compat, util
+from wsgidav.fs_dav_provider import FilesystemProvider
+from wsgidav.wsgidav_app import WsgiDAVApp
 
 try:
     import webtest

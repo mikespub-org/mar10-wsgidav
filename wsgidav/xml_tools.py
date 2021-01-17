@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# (c) 2009-2020 Martin Wendt and contributors; see WsgiDAV https://github.com/mar10/wsgidav
+# (c) 2009-2021 Martin Wendt and contributors; see WsgiDAV https://github.com/mar10/wsgidav
 # Original PyFileServer (c) 2005 Ho Chun Wei.
 # Licensed under the MIT license:
 # http://www.opensource.org/licenses/mit-license.php
@@ -8,10 +8,9 @@ Small wrapper for different etree packages.
 """
 # from __future__ import print_function
 
-from wsgidav import compat
-
 import logging
 
+from wsgidav import compat
 
 __docformat__ = "reStructuredText"
 
@@ -22,20 +21,19 @@ _logger = logging.getLogger("wsgidav")
 use_lxml = False
 try:
     # This import helps setup.py to include lxml completely:
-    from lxml import _elementpath as _dummy_elementpath  # noqa
-
     # lxml with safe defaults
     from defusedxml.lxml import _etree as etree
+    from lxml import _elementpath as _dummy_elementpath  # noqa
 
     use_lxml = True
     _ElementType = etree._Element
 except ImportError:
     # warnings.warn("Could not import lxml")  # , ImportWarning)
     # Try xml module (Python 2.5 or later) with safe defaults
-    from defusedxml import ElementTree as etree
-
     # defusedxml doesn't define these non-parsing related objects
     from xml.etree.ElementTree import Element, SubElement, tostring
+
+    from defusedxml import ElementTree as etree
 
     etree.Element = _ElementType = Element
     etree.SubElement = SubElement

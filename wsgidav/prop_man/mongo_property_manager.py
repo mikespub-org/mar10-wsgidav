@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# (c) 2009-2020 Martin Wendt and contributors; see WsgiDAV https://github.com/mar10/wsgidav
+# (c) 2009-2021 Martin Wendt and contributors; see WsgiDAV https://github.com/mar10/wsgidav
 # Licensed under the MIT license: http://www.opensource.org/licenses/mit-license.php
 """
 Implements a property manager based on MongoDB.
@@ -23,10 +23,10 @@ Valid options are (sample shows defaults)::
 
 """
 from __future__ import print_function
-from wsgidav import compat, util
 
 import pymongo
 
+from wsgidav import compat, util
 
 __docformat__ = "reStructuredText"
 
@@ -142,8 +142,7 @@ class MongoPropertyManager(object):
         self.collection.save(doc)
 
     def remove_property(self, norm_url, name, dry_run=False, environ=None):
-        """
-        """
+        """"""
         _logger.debug("remove_property(%s, %s, dry_run=%s)" % (norm_url, name, dry_run))
         if dry_run:
             # TODO: can we check anything here?

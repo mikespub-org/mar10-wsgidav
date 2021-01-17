@@ -1,15 +1,14 @@
 # -*- coding: utf-8 -*-
-# (c) 2009-2020 Martin Wendt and contributors; see WsgiDAV https://github.com/mar10/wsgidav
+# (c) 2009-2021 Martin Wendt and contributors; see WsgiDAV https://github.com/mar10/wsgidav
 # Licensed under the MIT license: http://www.opensource.org/licenses/mit-license.php
 """
 Tools that make it easier to implement custom WsgiDAV providers.
 """
-from wsgidav import compat, util
-from wsgidav.dav_provider import DAVCollection, DAVNonCollection
-
 import os
 import stat
 
+from wsgidav import compat, util
+from wsgidav.dav_provider import DAVCollection, DAVNonCollection
 
 __docformat__ = "reStructuredText en"
 

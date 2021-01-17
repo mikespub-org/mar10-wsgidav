@@ -1,20 +1,20 @@
 # -*- coding: utf-8 -*-
-# (c) 2009-2020 Martin Wendt and contributors; see WsgiDAV https://github.com/mar10/wsgidav
+# (c) 2009-2021 Martin Wendt and contributors; see WsgiDAV https://github.com/mar10/wsgidav
 # Licensed under the MIT license:
 # http://www.opensource.org/licenses/mit-license.php
 """
 WSGI middleware that handles GET requests on collections to display directories.
 """
-from fnmatch import fnmatch
-from jinja2 import Environment, FileSystemLoader
-from wsgidav import __version__, compat, util
-from wsgidav.dav_error import DAVError, HTTP_MEDIATYPE_NOT_SUPPORTED, HTTP_OK
-from wsgidav.middleware import BaseMiddleware
-from wsgidav.util import safe_re_encode
-
 import os
 import sys
+from fnmatch import fnmatch
 
+from jinja2 import Environment, FileSystemLoader
+
+from wsgidav import __version__, compat, util
+from wsgidav.dav_error import HTTP_MEDIATYPE_NOT_SUPPORTED, HTTP_OK, DAVError
+from wsgidav.middleware import BaseMiddleware
+from wsgidav.util import safe_re_encode
 
 __docformat__ = "reStructuredText"
 
@@ -45,7 +45,18 @@ class WsgiDavDirBrowser(BaseMiddleware):
 
     def __init__(self, wsgidav_app, next_app, config):
         super(WsgiDavDirBrowser, self).__init__(wsgidav_app, next_app, config)
-        self.htdocs_path = os.path.join(os.path.dirname(__file__), "htdocs")
+        self.dir_config = config.get("dir_browser", {})
+
+        htdocs_path = self.dir_config.get("htdocs_path")
+        if htdocs_path:
+            self.htdocs_path = os.path.realpath(htdocs_path)
+        else:
+            self.htdocs_path = os.path.join(os.path.dirname(__file__), "htdocs")
+
+        if not os.path.isdir(self.htdocs_path):
+            raise ValueError(
+                "Invalid dir_browser htdocs_path {!r}".format(self.htdocs_path)
+            )
 
         # Add an additional read-only FS provider that serves the dir_browser assets
         self.wsgidav_app.add_provider(ASSET_SHARE, self.htdocs_path, readonly=True)
@@ -58,7 +69,6 @@ class WsgiDavDirBrowser(BaseMiddleware):
         templateLoader = FileSystemLoader(searchpath=self.htdocs_path)
         templateEnv = Environment(loader=templateLoader)
         self.template = templateEnv.get_template("template.html")
-        self.dir_config = config.get("dir_browser", {})
 
     def is_disabled(self):
         return self.dir_config.get("enable") is False

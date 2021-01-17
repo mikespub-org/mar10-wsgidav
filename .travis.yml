@@ -5,31 +5,28 @@ matrix:
     include:
         - python: "2.7"
           env: TOXENV=lint-py27
-        - python: "3.7"
-          env: TOXENV=black-check,lint-py3
-          dist: xenial  # only while we're using python 3.7
+        - python: "3.9"
+          env: TOXENV=check,lint-py3
         - python: "2.7"
           env: TOXENV=py27
-        # - python: "3.4"  # EOL 2019-03-18
-        #   env: TOXENV=py34
-        - python: "3.5"
-          env: TOXENV=py35
-        - python: "3.6"
-          env: TOXENV=py36
+        - python: "3.9"
+          env: TOXENV=py39
+        - python: "3.8"
+          env: TOXENV=py38
         - python: "3.7"
           env: TOXENV=py37
           dist: xenial
-        - python: "3.8"
-          env: TOXENV=py38
-        - python: "3.7-dev"
-          env: TOXENV=py37
-        - python: "3.8-dev"
-          env: TOXENV=py38
+        - python: "3.6"
+          env: TOXENV=py36
+        - python: "3.5"
+          env: TOXENV=py35
+        # - python: "3.4"  # EOL 2019-03-18
+        #   env: TOXENV=py34
+        - python: "3.10-dev"
+          env: TOXENV=py310
     allow_failures:
-        - python: "3.7-dev"
-          env: TOXENV=py37
-        - python: "3.8-dev"
-          env: TOXENV=py38
+        - python: "3.10-dev"
+          env: TOXENV=py310
 
 before_install:
     # See issue #80: litmus fails to build on travis

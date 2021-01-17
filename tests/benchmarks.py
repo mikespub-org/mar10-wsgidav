@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# (c) 2009-2020 Martin Wendt and contributors; see WsgiDAV https://github.com/mar10/wsgidav
+# (c) 2009-2021 Martin Wendt and contributors; see WsgiDAV https://github.com/mar10/wsgidav
 # Licensed under the MIT license:
 # http://www.opensource.org/licenses/mit-license.php
 """
@@ -49,9 +49,6 @@ Test cases
         file10-10-1.txt -> 1k
 """
 from __future__ import print_function
-from tests.util import Timing, WsgiDavTestServer
-from wsgidav import __version__
-from wsgidav.xml_tools import use_lxml
 
 import datetime
 import logging
@@ -60,6 +57,9 @@ import platform
 import subprocess
 import sys
 
+from tests.util import Timing, WsgiDavTestServer
+from wsgidav import __version__
+from wsgidav.xml_tools import use_lxml
 
 try:
     # WsgiDAV 2.x

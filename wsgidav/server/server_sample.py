@@ -1,16 +1,17 @@
 # -*- coding: utf-8 -*-
-# (c) 2009-2020 Martin Wendt and contributors; see WsgiDAV https://github.com/mar10/wsgidav
+# (c) 2009-2021 Martin Wendt and contributors; see WsgiDAV https://github.com/mar10/wsgidav
 # Original PyFileServer (c) 2005 Ho Chun Wei.
 # Licensed under the MIT license: http://www.opensource.org/licenses/mit-license.php
 """
 Simple example how to a run WsgiDAV in a 3rd-party WSGI server.
 """
 from __future__ import print_function
+
 from tempfile import gettempdir
+
 from wsgidav import __version__
 from wsgidav.fs_dav_provider import FilesystemProvider
 from wsgidav.wsgidav_app import WsgiDAVApp
-
 
 __docformat__ = "reStructuredText"
 

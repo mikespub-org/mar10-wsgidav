@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# (c) 2009-2020 Martin Wendt and contributors; see WsgiDAV https://github.com/mar10/wsgidav
+# (c) 2009-2021 Martin Wendt and contributors; see WsgiDAV https://github.com/mar10/wsgidav
 # Licensed under the MIT license:
 # http://www.opensource.org/licenses/mit-license.php
 """
@@ -11,13 +11,14 @@ TODO: since it is now based on six, we should remove this module eventually.
 """
 # flake8: noqa
 
-from six import BytesIO, PY2, PY3
-from six.moves import cStringIO as StringIO, input as console_input, queue, xrange
-from six.moves.urllib.parse import quote, unquote, urlparse
-
-import six
 import sys
 
+import six
+from six import PY2, PY3, BytesIO
+from six.moves import cStringIO as StringIO
+from six.moves import input as console_input
+from six.moves import queue, xrange
+from six.moves.urllib.parse import quote, unquote, urlparse
 
 # See #174: `collections_abc` would be part of six.moves, but only for
 # six v1.13+ but we don't want to force users to update their system python's six

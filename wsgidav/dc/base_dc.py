@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# (c) 2009-2020 Martin Wendt and contributors; see WsgiDAV https://github.com/mar10/wsgidav
+# (c) 2009-2021 Martin Wendt and contributors; see WsgiDAV https://github.com/mar10/wsgidav
 # Licensed under the MIT license: http://www.opensource.org/licenses/mit-license.php
 """
 Abstract base class of a domain controller (used by HTTPAuthenticator).
@@ -38,13 +38,14 @@ TODO: Work In Progress / Subject to change
 
 """
 from __future__ import print_function
-from hashlib import md5
-from wsgidav import compat, util
 
 import abc
-import six
 import sys
+from hashlib import md5
 
+import six
+
+from wsgidav import compat, util
 
 __docformat__ = "reStructuredText"
 

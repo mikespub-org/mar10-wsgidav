@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# (c) 2009-2020 Martin Wendt and contributors; see WsgiDAV https://github.com/mar10/wsgidav
+# (c) 2009-2021 Martin Wendt and contributors; see WsgiDAV https://github.com/mar10/wsgidav
 # Licensed under the MIT license: http://www.opensource.org/licenses/mit-license.php
 """
 Implement the FileLikeQueue helper class.
@@ -17,8 +17,8 @@ consumer at the same time::
 
 """
 from __future__ import print_function
-from wsgidav import compat, util
 
+from wsgidav import compat, util
 
 __docformat__ = "reStructuredText"
 

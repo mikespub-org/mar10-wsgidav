@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# (c) 2009-2020 Martin Wendt and contributors; see WsgiDAV https://github.com/mar10/wsgidav
+# (c) 2009-2021 Martin Wendt and contributors; see WsgiDAV https://github.com/mar10/wsgidav
 # Original PyFileServer (c) 2005 Ho Chun Wei.
 # Licensed under the MIT license:
 # http://www.opensource.org/licenses/mit-license.php
@@ -51,13 +51,12 @@ These configuration settings are evaluated:
         debug_litmus = ["notowner_modify", "props: 16", ]
 
 """
-from wsgidav import compat, util
-from wsgidav.middleware import BaseMiddleware
-from wsgidav.util import safe_re_encode
-
 import sys
 import threading
 
+from wsgidav import compat, util
+from wsgidav.middleware import BaseMiddleware
+from wsgidav.util import safe_re_encode
 
 __docformat__ = "reStructuredText"
 
@@ -142,8 +141,11 @@ class WsgiDavDebugFilter(BaseMiddleware):
             # _logger.info("<{}> --- {} Request ---".format(
             #         threading.currentThread().ident, method))
             for k, v in environ.items():
-                if k == k.upper():
-                    _logger.info("{:<20}: '{}'".format(k, safe_re_encode(v, "utf8")))
+                try:
+                    v = safe_re_encode(v, "utf8")
+                except Exception:
+                    pass
+                _logger.info("{:<20}: '{!r}'".format(k, v))
             _logger.info("\n")
 
         # Intercept start_response

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# (c) 2009-2020 Martin Wendt and contributors; see WsgiDAV https://github.com/mar10/wsgidav
+# (c) 2009-2021 Martin Wendt and contributors; see WsgiDAV https://github.com/mar10/wsgidav
 # Original PyFileServer (c) 2005 Ho Chun Wei.
 # Licensed under the MIT license:
 # http://www.opensource.org/licenses/mit-license.php
@@ -8,9 +8,6 @@ WSGI application that handles one single WebDAV request.
 """
 from wsgidav import compat, util, xml_tools
 from wsgidav.dav_error import (
-    as_DAVError,
-    DAVError,
-    get_http_status_string,
     HTTP_BAD_GATEWAY,
     HTTP_BAD_REQUEST,
     HTTP_CONFLICT,
@@ -27,11 +24,13 @@ from wsgidav.dav_error import (
     HTTP_OK,
     HTTP_PRECONDITION_FAILED,
     HTTP_RANGE_NOT_SATISFIABLE,
+    DAVError,
     PRECONDITION_CODE_LockTokenMismatch,
     PRECONDITION_CODE_PropfindFiniteDepth,
+    as_DAVError,
+    get_http_status_string,
 )
 from wsgidav.util import etree
-
 
 __docformat__ = "reStructuredText"
 
@@ -941,7 +940,10 @@ class RequestServer(object):
         if src_res.is_collection:
             dest_path = dest_path.rstrip("/") + "/"
 
-        if dest_scheme and dest_scheme.lower() != environ["wsgi.url_scheme"].lower():
+        dest_scheme = dest_scheme.lower() if dest_scheme else ""
+        url_scheme = environ["wsgi.url_scheme"].lower()
+        fwd_scheme = environ.get("HTTP_X_FORWARDED_PROTO", "").lower()
+        if dest_scheme and dest_scheme not in (url_scheme, fwd_scheme):
             self._fail(
                 HTTP_BAD_GATEWAY,
                 "Source and destination must have the same scheme.\n"

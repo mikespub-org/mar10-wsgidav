@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# (c) 2009-2020 Martin Wendt and contributors; see WsgiDAV https://github.com/mar10/wsgidav
+# (c) 2009-2021 Martin Wendt and contributors; see WsgiDAV https://github.com/mar10/wsgidav
 # Licensed under the MIT license:
 # http://www.opensource.org/licenses/mit-license.php
 """
@@ -7,11 +7,11 @@
 
     This test suite uses requests to generate HTTP requests.
 """
-from tests.util import WsgiDavTestServer
-
-import requests
 import unittest
 
+import requests
+
+from tests.util import WsgiDavTestServer
 
 _test_server = None
 

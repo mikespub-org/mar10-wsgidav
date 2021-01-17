@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# (c) 2009-2020 Martin Wendt and contributors; see WsgiDAV https://github.com/mar10/wsgidav
+# (c) 2009-2021 Martin Wendt and contributors; see WsgiDAV https://github.com/mar10/wsgidav
 # Original PyFileServer (c) 2005 Ho Chun Wei.
 # Licensed under the MIT license:
 # http://www.opensource.org/licenses/mit-license.php
@@ -18,12 +18,11 @@ The properties dictionaray is built like::
       }
 
 """
-from wsgidav import util
-from wsgidav.rw_lock import ReadWriteLock
-
 import os
 import shelve
 
+from wsgidav import util
+from wsgidav.rw_lock import ReadWriteLock
 
 # TODO: comment's from Ian Bicking (2005)
 # @@: Use of shelve means this is only really useful in a threaded environment.

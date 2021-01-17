@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# (c) 2009-2020 Martin Wendt and contributors; see WsgiDAV https://github.com/mar10/wsgidav
+# (c) 2009-2021 Martin Wendt and contributors; see WsgiDAV https://github.com/mar10/wsgidav
 # Original PyFileServer (c) 2005 Ho Chun Wei.
 # Licensed under the MIT license:
 # http://www.opensource.org/licenses/mit-license.php
@@ -15,15 +15,14 @@ This provider creates instances of :class:`~wsgidav.fs_dav_provider.FileResource
 and :class:`~wsgidav.fs_dav_provider.FolderResource` to represent files and
 directories respectively.
 """
-from wsgidav import compat, util
-from wsgidav.dav_error import DAVError, HTTP_FORBIDDEN
-from wsgidav.dav_provider import DAVCollection, DAVNonCollection, DAVProvider
-
 import os
 import shutil
 import stat
 import sys
 
+from wsgidav import compat, util
+from wsgidav.dav_error import HTTP_FORBIDDEN, DAVError
+from wsgidav.dav_provider import DAVCollection, DAVNonCollection, DAVProvider
 
 __docformat__ = "reStructuredText"
 
@@ -215,6 +214,8 @@ class FolderResource(DAVCollection):
         nameList = []
         # self._file_path is unicode, so os.listdir returns unicode as well
         assert compat.is_unicode(self._file_path)
+        # if "temp" in self._file_path:
+        #     raise RuntimeError("Oops")
         for name in os.listdir(self._file_path):
             if not compat.is_unicode(name):
                 name = name.decode(sys.getfilesystemencoding())

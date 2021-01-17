@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# (c) 2009-2020 Martin Wendt and contributors; see WsgiDAV https://github.com/mar10/wsgidav
+# (c) 2009-2021 Martin Wendt and contributors; see WsgiDAV https://github.com/mar10/wsgidav
 # Original PyFileServer (c) 2005 Ho Chun Wei.
 # Licensed under the MIT license:
 # http://www.opensource.org/licenses/mit-license.php
@@ -7,19 +7,18 @@
 WSGI middleware to catch application thrown DAVErrors and return proper
 responses.
 """
+import traceback
+
 from wsgidav import util
 from wsgidav.dav_error import (
-    as_DAVError,
-    DAVError,
-    get_http_status_string,
     HTTP_INTERNAL_ERROR,
     HTTP_NO_CONTENT,
     HTTP_NOT_MODIFIED,
+    DAVError,
+    as_DAVError,
+    get_http_status_string,
 )
 from wsgidav.middleware import BaseMiddleware
-
-import traceback
-
 
 __docformat__ = "reStructuredText"
 

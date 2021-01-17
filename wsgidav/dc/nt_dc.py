@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# (c) 2009-2020 Martin Wendt and contributors; see WsgiDAV https://github.com/mar10/wsgidav
+# (c) 2009-2021 Martin Wendt and contributors; see WsgiDAV https://github.com/mar10/wsgidav
 # Original PyFileServer (c) 2005 Ho Chun Wei.
 # Licensed under the MIT license: http://www.opensource.org/licenses/mit-license.php
 """
@@ -76,13 +76,13 @@ Testability and caveats
 
 """
 from __future__ import print_function
-from wsgidav import compat, util
-from wsgidav.dc.base_dc import BaseDomainController
 
 import win32net
 import win32netcon
 import win32security
 
+from wsgidav import compat, util
+from wsgidav.dc.base_dc import BaseDomainController
 
 __docformat__ = "reStructuredText"
 _logger = util.get_module_logger(__name__)

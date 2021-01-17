@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# (c) 2009-2020 Martin Wendt and contributors; see WsgiDAV https://github.com/mar10/wsgidav
+# (c) 2009-2021 Martin Wendt and contributors; see WsgiDAV https://github.com/mar10/wsgidav
 # Licensed under the MIT license:
 # http://www.opensource.org/licenses/mit-license.php
 
@@ -7,17 +7,17 @@
 Unit tests for wsgidav.stream_tools.FileLikeQueue
 """
 
+import os
+import threading
+import unittest
 from tempfile import gettempdir
-from tests.util import Timing, write_test_file, WsgiDavTestServer
+
+import requests
+
+from tests.util import Timing, WsgiDavTestServer, write_test_file
 from wsgidav import compat
 from wsgidav.dav_provider import DAVNonCollection, DAVProvider
 from wsgidav.stream_tools import FileLikeQueue
-
-import os
-import requests
-import threading
-import unittest
-
 
 # ----------------------------------------------------------------------------
 # Dummy DAVProvider implementation

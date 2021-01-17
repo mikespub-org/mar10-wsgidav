@@ -1,15 +1,14 @@
 # -*- coding: utf-8 -*-
-# (c) 2009-2020 Martin Wendt and contributors; see WsgiDAV https://github.com/mar10/wsgidav
+# (c) 2009-2021 Martin Wendt and contributors; see WsgiDAV https://github.com/mar10/wsgidav
 # Licensed under the MIT license:
 # http://www.opensource.org/licenses/mit-license.php
 """Unit test for property_manager.py"""
-from tempfile import gettempdir
-from wsgidav.prop_man import property_manager
-
 import os
 import sys
 import unittest
+from tempfile import gettempdir
 
+from wsgidav.prop_man import property_manager
 
 # ========================================================================
 # BasicTest

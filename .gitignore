@@ -6,11 +6,10 @@
 .vscode
 .pytest_cache/
 build/
-_build/
-doc/sphinx/_autosummary/
-doc/sphinx/_build/
-doc/sphinx/_generated/
-doc/sphinx-build/
+docs/sphinx/_autosummary/
+docs/sphinx/_build/
+docs/sphinx/_generated/
+docs/sphinx-build/
 htmlcov/
 *.pyc
 *.confc
@@ -21,6 +20,7 @@ debug.log
 wsgidav.conf
 wsgidav.json
 dist
+dist.yabs/
 coverage.xml
 .coverage*
 

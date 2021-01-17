@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# (c) 2009-2020 Martin Wendt and contributors; see WsgiDAV https://github.com/mar10/wsgidav
+# (c) 2009-2021 Martin Wendt and contributors; see WsgiDAV https://github.com/mar10/wsgidav
 # Licensed under the MIT license: http://www.opensource.org/licenses/mit-license.php
 """
 Implementation of a WebDAV provider that provides a very basic, read-only
@@ -24,14 +24,14 @@ Valid options are (sample shows defaults)::
             }
 
 """
-from bson.objectid import ObjectId
 from pprint import pformat
+
+import pymongo
+from bson.objectid import ObjectId
+
 from wsgidav import compat, util
 from wsgidav.dav_provider import DAVCollection, DAVNonCollection, DAVProvider
 from wsgidav.util import join_uri
-
-import pymongo
-
 
 __docformat__ = "reStructuredText"
 

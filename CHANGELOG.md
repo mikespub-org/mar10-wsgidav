@@ -1,9 +1,17 @@
 # Changelog
 
-## 3.0.4 / Unreleased
+## 3.1.1 / Unreleased
+
+## 3.1.0 / 2021-01-04
 
 - #181 Fix error for UTF8 (surrogate) filename
+- #183 Support reverse proxies
 - #186 Add sample Redis lock manager `LockStorageRedis` (Steffen Deusch)
+- #191 Add option `dir_browser.htdocs_path`
+- #193 Support gunicorn
+- #195 Add password to lock_storage_redis
+- #198 Fix exception with verbose > 3
+- Use [Yabs](https://github.com/mar10/yabs) as release tool
 
 ## 3.0.3 / 2020-04-02
 
@@ -284,7 +292,7 @@ This release contains **BREAKING CHANGES!**
 
 ## 0.4.0.b1
 
-- Using HTTP/1.1 with keep-alive (St�phane KLEIN)
+- Using HTTP/1.1 with keep-alive (Stéphane KLEIN)
 - Correctly return pre- and postconditions on lock conflicts.
 - Added Sphinx docs
 - Added Mercurial provider
@@ -293,4 +301,4 @@ This release contains **BREAKING CHANGES!**
 
 ## Until 0.4.0 alpha
 
-See https://github.com/mar10/wsgidav/blob/master/doc/changelog04.md
+See https://github.com/mar10/wsgidav/blob/master/docs/changelog04.md

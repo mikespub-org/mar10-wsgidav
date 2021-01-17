@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# (c) 2009-2020 Martin Wendt and contributors; see WsgiDAV https://github.com/mar10/wsgidav
+# (c) 2009-2021 Martin Wendt and contributors; see WsgiDAV https://github.com/mar10/wsgidav
 # Original PyFileServer (c) 2005 Ho Chun Wei.
 # Licensed under the MIT license: http://www.opensource.org/licenses/mit-license.php
 """
@@ -11,7 +11,7 @@ classes ``MySQLBrowserProvider``.
 
 Usage::
 
-    (see doc/sample_wsgidav.conf)
+    (see docs/sample_wsgidav.conf)
     MySQLBrowserProvider(host, user, passwd, db)
 
     host - host of database server
@@ -58,19 +58,20 @@ its limitations:
 
 """
 from __future__ import print_function
-from wsgidav import compat, util
-from wsgidav.dav_error import (
-    DAVError,
-    HTTP_FORBIDDEN,
-    PRECONDITION_CODE_ProtectedProperty,
-)
-from wsgidav.dav_provider import _DAVResource, DAVProvider
 
 import csv
 import hashlib
-import MySQLdb  # @UnresolvedImport
 import time
 
+import MySQLdb  # @UnresolvedImport
+
+from wsgidav import compat, util
+from wsgidav.dav_error import (
+    HTTP_FORBIDDEN,
+    DAVError,
+    PRECONDITION_CODE_ProtectedProperty,
+)
+from wsgidav.dav_provider import DAVProvider, _DAVResource
 
 __docformat__ = "reStructuredText"
 

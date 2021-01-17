@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# (c) 2009-2020 Martin Wendt and contributors; see WsgiDAV https://github.com/mar10/wsgidav
+# (c) 2009-2021 Martin Wendt and contributors; see WsgiDAV https://github.com/mar10/wsgidav
 # Licensed under the MIT license:
 # http://www.opensource.org/licenses/mit-license.php
 """
@@ -11,19 +11,19 @@
         http://svn.osafoundation.org/tools/davclient/trunk/src/davclient/davclient.py
 """
 from __future__ import print_function
-from tempfile import gettempdir
-from tests import davclient
-from tests.util import WsgiDavTestServer
-from threading import Thread
-from wsgidav import compat
-from wsgidav.fs_dav_provider import FilesystemProvider
-from wsgidav.server.ext_wsgiutils_server import ExtServer
-from wsgidav.wsgidav_app import WsgiDAVApp
 
 import os
 import time
 import unittest
+from tempfile import gettempdir
+from threading import Thread
 
+from tests import davclient
+from tests.util import WsgiDavTestServer
+from wsgidav import compat
+from wsgidav.fs_dav_provider import FilesystemProvider
+from wsgidav.server.ext_wsgiutils_server import ExtServer
+from wsgidav.wsgidav_app import WsgiDAVApp
 
 # SERVER_ADDRESS
 # (using localhost or mixing hostnames with IPs may be very slow!)

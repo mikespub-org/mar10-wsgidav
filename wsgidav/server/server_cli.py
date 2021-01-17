@@ -33,13 +33,6 @@ Configuration is defined like this:
        FOLDER on the '/' share.
 """
 from __future__ import print_function
-from inspect import isfunction
-from pprint import pformat
-from wsgidav import __version__, util
-from wsgidav.default_conf import DEFAULT_CONFIG, DEFAULT_VERBOSE
-from wsgidav.fs_dav_provider import FilesystemProvider
-from wsgidav.wsgidav_app import WsgiDAVApp
-from wsgidav.xml_tools import use_lxml
 
 import argparse
 import copy
@@ -49,8 +42,17 @@ import os
 import platform
 import sys
 import traceback
+from inspect import isfunction
+from pprint import pformat
+from threading import Timer
+
 import yaml
 
+from wsgidav import __version__, util
+from wsgidav.default_conf import DEFAULT_CONFIG, DEFAULT_VERBOSE
+from wsgidav.fs_dav_provider import FilesystemProvider
+from wsgidav.wsgidav_app import WsgiDAVApp
+from wsgidav.xml_tools import use_lxml
 
 try:
     # Try pyjson5 first because it's faster than json5
@@ -649,8 +651,6 @@ def _run_cheroot(app, config, mode):
     assert mode == "cheroot"
     try:
         from cheroot import server, wsgi
-    #         from cheroot.ssl.builtin import BuiltinSSLAdapter
-    #         import cheroot.ssl.pyopenssl
     except ImportError:
         _logger.error("*" * 78)
         _logger.error("ERROR: Could not import Cheroot.")
@@ -684,8 +684,6 @@ def _run_cheroot(app, config, mode):
         raise RuntimeError(
             "Option 'ssl_certificate' and 'ssl_private_key' must be used together."
         )
-    #     elif ssl_adapter:
-    #         print("WARNING: Ignored option 'ssl_adapter' (requires 'ssl_certificate').")
 
     _logger.info("Running {}".format(server_name))
     _logger.info(
@@ -702,21 +700,33 @@ def _run_cheroot(app, config, mode):
     # Override or add custom args
     server_args.update(config.get("server_args", {}))
 
-    server = wsgi.Server(**server_args)
+    class PatchedServer(wsgi.Server):
+        STARTUP_NOTIFICATION_DELAY = 0.5
+
+        def serve(self, *args, **kwargs):
+            _logger.error("wsgi.Server.serve")
+            if startup_event and not startup_event.is_set():
+                Timer(self.STARTUP_NOTIFICATION_DELAY, startup_event.set).start()
+                _logger.error("wsgi.Server is ready")
+            return super(PatchedServer, self).serve(*args, **kwargs)
 
     # If the caller passed a startup event, monkey patch the server to set it
     # when the request handler loop is entered
     startup_event = config.get("startup_event")
     if startup_event:
+        server = PatchedServer(**server_args)
 
-        def _patched_tick():
-            server.tick = org_tick  # undo the monkey patch
-            _logger.info("wsgi.Server is ready")
-            startup_event.set()
-            org_tick()
-
-        org_tick = server.tick
-        server.tick = _patched_tick
+        # issue #200: The `server.tick()` method was dropped with cheroot 8.5
+        # def _patched_tick():
+        #     server.tick = org_tick  # undo the monkey patch
+        #     _logger.info("wsgi.Server is ready (pre Cheroot 8.5")
+        #     startup_event.set()
+        #     org_tick()
+        #
+        # org_tick = server.tick
+        # server.tick = _patched_tick
+    else:
+        server = wsgi.Server(**server_args)
 
     try:
         server.start()
@@ -732,9 +742,11 @@ def _run_flup(app, config, mode):
     """Run WsgiDAV using flup.server.fcgi if Flup is installed."""
     # http://trac.saddi.com/flup/wiki/FlupServers
     if mode == "flup-fcgi":
-        from flup.server.fcgi import WSGIServer, __version__ as flupver
+        from flup.server.fcgi import WSGIServer
+        from flup.server.fcgi import __version__ as flupver
     elif mode == "flup-fcgi-fork":
-        from flup.server.fcgi_fork import WSGIServer, __version__ as flupver
+        from flup.server.fcgi_fork import WSGIServer
+        from flup.server.fcgi_fork import __version__ as flupver
     else:
         raise ValueError
 
@@ -790,6 +802,36 @@ def _run_ext_wsgiutils(app, config, mode):
     return
 
 
+def _run_gunicorn(app, config, mode):
+    """Run WsgiDAV using gunicorn if gunicorn is installed."""
+    import gunicorn.app.base
+
+    class GunicornApplication(gunicorn.app.base.BaseApplication):
+        def __init__(self, app, options=None):
+            self.options = options or {}
+            self.application = app
+            super().__init__()
+
+        def load_config(self):
+            config = {
+                key: value
+                for key, value in self.options.items()
+                if key in self.cfg.settings and value is not None
+            }
+            for key, value in config.items():
+                self.cfg.set(key.lower(), value)
+
+        def load(self):
+            return self.application
+
+    options = {
+        "bind": "{}:{}".format(config["host"], config["port"]),
+        "threads": 50,
+        "timeout": 1200,
+    }
+    GunicornApplication(app, options).run()
+
+
 SUPPORTED_SERVERS = {
     "paste": _run_paste,
     "gevent": _run_gevent,
@@ -799,6 +841,7 @@ SUPPORTED_SERVERS = {
     "flup-fcgi": _run_flup,
     "flup-fcgi_fork": _run_flup,
     "wsgiref": _run_wsgiref,
+    "gunicorn": _run_gunicorn,
 }
 
 

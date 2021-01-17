@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# (c) 2009-2020 Martin Wendt and contributors; see WsgiDAV https://github.com/mar10/wsgidav
+# (c) 2009-2021 Martin Wendt and contributors; see WsgiDAV https://github.com/mar10/wsgidav
 # Original PyFileServer (c) 2005 Ho Chun Wei.
 # Licensed under the MIT license:
 # http://www.opensource.org/licenses/mit-license.php
@@ -36,19 +36,18 @@ The lock data model is a dictionary with these fields:
         Automatically generated unique token.
 
 """
+import random
+import time
 from pprint import pformat
+
 from wsgidav import compat, util
 from wsgidav.dav_error import (
+    HTTP_LOCKED,
     DAVError,
     DAVErrorCondition,
-    HTTP_LOCKED,
     PRECONDITION_CODE_LockConflict,
 )
 from wsgidav.rw_lock import ReadWriteLock
-
-import random
-import time
-
 
 __docformat__ = "reStructuredText"
 

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# (c) 2009-2020 Martin Wendt and contributors; see WsgiDAV https://github.com/mar10/wsgidav
+# (c) 2009-2021 Martin Wendt and contributors; see WsgiDAV https://github.com/mar10/wsgidav
 # Original PyFileServer (c) 2005 Ho Chun Wei.
 # Licensed under the MIT license:
 # http://www.opensource.org/licenses/mit-license.php
@@ -77,18 +77,17 @@ The environ variable here is the WSGI 'environ' dictionary. It is passed to
 all methods of the domain controller as a means for developers to pass information
 from previous middleware or server config (if required).
 """
-from hashlib import md5
-from textwrap import dedent
-from wsgidav import compat, util
-from wsgidav.dc.simple_dc import SimpleDomainController
-from wsgidav.middleware import BaseMiddleware
-from wsgidav.util import calc_base64, calc_hexdigest, dynamic_import_class
-
 import inspect
 import random
 import re
 import time
+from hashlib import md5
+from textwrap import dedent
 
+from wsgidav import compat, util
+from wsgidav.dc.simple_dc import SimpleDomainController
+from wsgidav.middleware import BaseMiddleware
+from wsgidav.util import calc_base64, calc_hexdigest, dynamic_import_class
 
 __docformat__ = "reStructuredText"
 
@@ -323,8 +322,10 @@ class HTTPAuthenticator(BaseMiddleware):
             timekey + ":" + etagkey + ":" + serverkey
         )
         nonce = calc_base64(nonce_source)
-        wwwauthheaders = 'Digest realm="{}", nonce="{}", algorithm=MD5, qop="auth"'.format(
-            realm, nonce
+        wwwauthheaders = (
+            'Digest realm="{}", nonce="{}", algorithm=MD5, qop="auth"'.format(
+                realm, nonce
+            )
         )
 
         _logger.debug(
@@ -504,8 +505,10 @@ class HTTPAuthenticator(BaseMiddleware):
                     )
                 )
             elif required_digest != req_response:
-                warning_msg = "compute_digest_response('{}', '{}', ...): {} != {}".format(
-                    realm, req_username, required_digest, req_response
+                warning_msg = (
+                    "compute_digest_response('{}', '{}', ...): {} != {}".format(
+                        realm, req_username, required_digest, req_response
+                    )
                 )
                 if self.winxp_accept_root_share_login and realm != "/":
                     # _logger.warning(warning_msg + " => trying '/' realm")

@@ -1,18 +1,17 @@
 # -*- coding: utf-8 -*-
-# (c) 2009-2020 Martin Wendt and contributors; see WsgiDAV https://github.com/mar10/wsgidav
+# (c) 2009-2021 Martin Wendt and contributors; see WsgiDAV https://github.com/mar10/wsgidav
 # Licensed under the MIT license:
 # http://www.opensource.org/licenses/mit-license.php
 """Unit test for lock_manager.py"""
-from tempfile import gettempdir
-from time import sleep
-from wsgidav import lock_manager, lock_storage
-from wsgidav.dav_error import DAVError
-from wsgidav.lock_storage_redis import LockStorageRedis
-
 import os
 import sys
 import unittest
+from tempfile import gettempdir
+from time import sleep
 
+from wsgidav import lock_manager, lock_storage
+from wsgidav.dav_error import DAVError
+from wsgidav.lock_storage_redis import LockStorageRedis
 
 # ========================================================================
 # BasicTest

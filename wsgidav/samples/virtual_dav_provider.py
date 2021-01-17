@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# (c) 2009-2020 Martin Wendt and contributors; see WsgiDAV https://github.com/mar10/wsgidav
+# (c) 2009-2021 Martin Wendt and contributors; see WsgiDAV https://github.com/mar10/wsgidav
 # Licensed under the MIT license: http://www.opensource.org/licenses/mit-license.php
 """
 Sample implementation of a DAV provider that provides a browsable,
@@ -95,19 +95,18 @@ When accessed using WebDAV, the following URLs both return the same resource
     <share>/by_tag/hot/My doc 1
     <share>/by_key/1
 """
+import os
+import stat
+
 from wsgidav import compat, util
 from wsgidav.dav_error import (
-    DAVError,
     HTTP_FORBIDDEN,
     HTTP_INTERNAL_ERROR,
+    DAVError,
     PRECONDITION_CODE_ProtectedProperty,
 )
 from wsgidav.dav_provider import DAVCollection, DAVNonCollection, DAVProvider
 from wsgidav.util import join_uri
-
-import os
-import stat
-
 
 __docformat__ = "reStructuredText en"
 

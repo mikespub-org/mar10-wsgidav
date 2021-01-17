@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# (c) 2009-2020 Martin Wendt and contributors; see WsgiDAV https://github.com/mar10/wsgidav
+# (c) 2009-2021 Martin Wendt and contributors; see WsgiDAV https://github.com/mar10/wsgidav
 # Original PyFileServer (c) 2005 Ho Chun Wei.
 # Licensed under the MIT license: http://www.opensource.org/licenses/mit-license.php
 """
@@ -53,8 +53,6 @@ can copy ``ext_wsgi_server.py`` to ``<Paste-installation>/paste/servers`` and us
 run the application by specifying ``server='ext_wsgiutils'`` in the ``server.conf`` or appropriate
 paste configuration.
 """
-from wsgidav import __version__, compat, util
-
 import logging
 import socket
 import sys
@@ -62,6 +60,7 @@ import threading
 import time
 import traceback
 
+from wsgidav import __version__, compat, util
 
 __docformat__ = "reStructuredText"
 

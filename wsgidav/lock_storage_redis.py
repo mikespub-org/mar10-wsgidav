@@ -1,8 +1,13 @@
 # -*- coding: utf-8 -*-
-# (c) 2009-2020 Martin Wendt and contributors; see WsgiDAV https://github.com/mar10/wsgidav
+# (c) 2009-2021 Martin Wendt and contributors; see WsgiDAV https://github.com/mar10/wsgidav
 # Original PyFileServer (c) 2005 Ho Chun Wei.
 # Licensed under the MIT license:
 # http://www.opensource.org/licenses/mit-license.php
+import pickle
+import time
+
+import redis
+
 from wsgidav import compat, util
 from wsgidav.lock_manager import (
     generate_lock_token,
@@ -11,24 +16,20 @@ from wsgidav.lock_manager import (
     validate_lock,
 )
 
-import pickle
-import redis
-import time
-
-
 _logger = util.get_module_logger(__name__)
 
 
 class LockStorageRedis(object):
     """
-        A (high performance?) lock manager implementation using redis!
+    A (high performance?) lock manager implementation using redis!
     """
 
-    def __init__(self, host="127.0.0.1", port=6379, db=0):
+    def __init__(self, host="127.0.0.1", port=6379, db=0, password=None):
         super(LockStorageRedis, self).__init__()
         self._redis_host = host
         self._redis_port = port
         self._redis_db = db
+        self._redis_password = password
         self._redis_prefix = "wsgidav-{}"
         self._redis_lock_prefix = self._redis_prefix.format("lock:{}")
         self._redis_url2token_prefix = self._redis_prefix.format("URL2TOKEN:{}")
@@ -52,7 +53,10 @@ class LockStorageRedis(object):
         """
         assert self._redis is None
         self._redis = redis.Redis(
-            host=self._redis_host, port=self._redis_port, db=self._redis_db
+            host=self._redis_host,
+            port=self._redis_port,
+            db=self._redis_db,
+            password=self._redis_password,
         )
 
     def close(self):

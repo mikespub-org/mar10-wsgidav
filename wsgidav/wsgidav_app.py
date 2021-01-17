@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# (c) 2009-2020 Martin Wendt and contributors; see WsgiDAV https://github.com/mar10/wsgidav
+# (c) 2009-2021 Martin Wendt and contributors; see WsgiDAV https://github.com/mar10/wsgidav
 # Original PyFileServer (c) 2005 Ho Chun Wei.
 # Licensed under the MIT license:
 # http://www.opensource.org/licenses/mit-license.php
@@ -47,6 +47,12 @@ For every request:
     Note: The OPTIONS method for the '*' path is handled directly.
 
 """
+import copy
+import inspect
+import platform
+import sys
+import time
+
 from wsgidav import __version__, compat, util
 from wsgidav.dav_provider import DAVProvider
 from wsgidav.default_conf import DEFAULT_CONFIG
@@ -61,13 +67,6 @@ from wsgidav.util import (
     dynamic_instantiate_middleware,
     safe_re_encode,
 )
-
-import copy
-import inspect
-import platform
-import sys
-import time
-
 
 __docformat__ = "reStructuredText"
 

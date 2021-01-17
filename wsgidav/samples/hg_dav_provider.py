@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# (c) 2009-2020 Martin Wendt and contributors; see WsgiDAV https://github.com/mar10/wsgidav
+# (c) 2009-2021 Martin Wendt and contributors; see WsgiDAV https://github.com/mar10/wsgidav
 # Licensed under the MIT license: http://www.opensource.org/licenses/mit-license.php
 """
 DAV provider that publishes a Mercurial repository.
@@ -72,22 +72,22 @@ Requirements:
     http://mercurial.berkwood.com/binaries/mercurial-1.4.win32-py2.6.exe
 """
 from __future__ import print_function
-from hashlib import md5
-from pprint import pprint
-from wsgidav import compat, util
-from wsgidav.dav_error import DAVError, HTTP_FORBIDDEN
-from wsgidav.dav_provider import _DAVResource, DAVProvider
-from wsgidav.samples.dav_provider_tools import VirtualCollection
 
 import os
 import sys
 import time
+from hashlib import md5
+from pprint import pprint
 
+from wsgidav import compat, util
+from wsgidav.dav_error import HTTP_FORBIDDEN, DAVError
+from wsgidav.dav_provider import DAVProvider, _DAVResource
+from wsgidav.samples.dav_provider_tools import VirtualCollection
 
 try:
     import mercurial.ui
-    from mercurial.__version__ import version as hgversion
     from mercurial import commands, hg
+    from mercurial.__version__ import version as hgversion
 
     # from mercurial import util as hgutil
 except ImportError:
@@ -366,9 +366,7 @@ class HgResource(_DAVResource):
         commands.remove(self.provider.ui, self.provider.repo, filepath, force=True)
 
     def handle_copy(self, dest_path, depth_infinity):
-        """Handle a COPY request natively.
-
-        """
+        """Handle a COPY request natively."""
         destType, destHgPath = util.pop_path(dest_path)
         destHgPath = destHgPath.strip("/")
         ui = self.provider.ui
@@ -387,9 +385,7 @@ class HgResource(_DAVResource):
         return True
 
     def handle_move(self, dest_path):
-        """Handle a MOVE request natively.
-
-        """
+        """Handle a MOVE request natively."""
         destType, destHgPath = util.pop_path(dest_path)
         destHgPath = destHgPath.strip("/")
         ui = self.provider.ui

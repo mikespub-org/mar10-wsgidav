@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# (c) 2009-2020 Martin Wendt and contributors; see WsgiDAV https://github.com/mar10/wsgidav
+# (c) 2009-2021 Martin Wendt and contributors; see WsgiDAV https://github.com/mar10/wsgidav
 # Original PyFileServer (c) 2005 Ho Chun Wei.
 # Licensed under the MIT license:
 # http://www.opensource.org/licenses/mit-license.php
@@ -11,6 +11,10 @@ Two alternative lock storage classes are defined here: one in-memory
 
 See :class:`~wsgidav.lock_manager.LockManager`
 """
+import os
+import shelve
+import time
+
 from wsgidav import compat, util
 from wsgidav.lock_manager import (
     generate_lock_token,
@@ -19,11 +23,6 @@ from wsgidav.lock_manager import (
     validate_lock,
 )
 from wsgidav.rw_lock import ReadWriteLock
-
-import os
-import shelve
-import time
-
 
 __docformat__ = "reStructuredText"
 

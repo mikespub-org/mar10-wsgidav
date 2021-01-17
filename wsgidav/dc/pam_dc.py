@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# (c) 2009-2020 Martin Wendt and contributors; see WsgiDAV https://github.com/mar10/wsgidav
+# (c) 2009-2021 Martin Wendt and contributors; see WsgiDAV https://github.com/mar10/wsgidav
 # Licensed under the MIT license: http://www.opensource.org/licenses/mit-license.php
 """
 Implementation of a domain controller that allows users to authenticate against
@@ -10,11 +10,11 @@ Used by HTTPAuthenticator. Only available on linux and macOS.
 See https://wsgidav.readthedocs.io/en/latest/user_guide_configure.html
 """
 from __future__ import print_function
-from wsgidav import util
-from wsgidav.dc.base_dc import BaseDomainController
 
 import pam
 
+from wsgidav import util
+from wsgidav.dc.base_dc import BaseDomainController
 
 __docformat__ = "reStructuredText"
 _logger = util.get_module_logger(__name__)

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# (c) 2009-2020 Martin Wendt and contributors; see WsgiDAV https://github.com/mar10/wsgidav
+# (c) 2009-2021 Martin Wendt and contributors; see WsgiDAV https://github.com/mar10/wsgidav
 # Original PyFileServer (c) 2005 Ho Chun Wei.
 # Licensed under the MIT license:
 # http://www.opensource.org/licenses/mit-license.php
@@ -19,7 +19,6 @@ from wsgidav.dir_browser import WsgiDavDirBrowser
 from wsgidav.error_printer import ErrorPrinter
 from wsgidav.http_authenticator import HTTPAuthenticator
 from wsgidav.request_resolver import RequestResolver
-
 
 __docformat__ = "reStructuredText"
 
@@ -93,5 +92,8 @@ DEFAULT_CONFIG = {
         "ms_sharepoint_support": True,  # Invoke MS Offce documents for editing using WebDAV
         # "ms_sharepoint_plugin": False,  # Invoke MS Offce documents for editing using WebDAV
         # "ms_sharepoint_urls": False,  # Prepend 'ms-word:ofe|u|' to URL for MS Offce documents
+        # The path to the directory that contains template.html and associated assets.
+        # The default is the htdocs directory within the dir_browser directory.
+        "htdocs_path": None,
     },
 }
