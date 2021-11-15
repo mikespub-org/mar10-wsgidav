@@ -17,7 +17,7 @@ recommonmark
 requests
 setuptools~=40.2
 sphinx_rtd_theme
-sphinx~=1.6
+sphinx~=4.3
 stressor
 tox~=3.13
 twine~=1.11
