@@ -22,7 +22,7 @@ from time import time
 # ---------------
 
 
-class ReadWriteLock(object):
+class ReadWriteLock:
     """Read-Write lock class. A read-write lock differs from a standard
     threading.RLock() by allowing multiple threads to simultaneously hold a
     read lock, while allowing only a single thread to hold a write lock at the
@@ -63,7 +63,7 @@ class ReadWriteLock(object):
         # Initialize with no readers.
         self.__readers = {}
 
-    def acquire_read(self, timeout=None):
+    def acquire_read(self, *, timeout=None):
         """Acquire a read lock for the current thread, waiting at most
         timeout seconds or doing a non-blocking check in case timeout is <= 0.
 
@@ -110,7 +110,7 @@ class ReadWriteLock(object):
         finally:
             self.__condition.release()
 
-    def acquire_write(self, timeout=None):
+    def acquire_write(self, *, timeout=None):
         """Acquire a write lock for the current thread, waiting at most
         timeout seconds or doing a non-blocking check in case timeout is <= 0.
 

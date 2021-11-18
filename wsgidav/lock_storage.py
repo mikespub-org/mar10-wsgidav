@@ -15,7 +15,7 @@ import os
 import shelve
 import time
 
-from wsgidav import compat, util
+from wsgidav import util
 from wsgidav.lock_manager import (
     generate_lock_token,
     lock_string,
@@ -44,7 +44,7 @@ _logger = util.get_module_logger(__name__)
 # ========================================================================
 # LockStorageDict
 # ========================================================================
-class LockStorageDict(object):
+class LockStorageDict:
     """
     An in-memory lock manager storage implementation using a dictionary.
 
@@ -99,8 +99,8 @@ class LockStorageDict(object):
     def __repr__(self):
         return self.__class__.__name__
 
-    def __del__(self):
-        pass
+    # def __del__(self):
+    #     pass
 
     def _flush(self):
         """Overloaded by Shelve implementation."""
@@ -222,7 +222,7 @@ class LockStorageDict(object):
         finally:
             self._lock.release()
 
-    def refresh(self, token, timeout):
+    def refresh(self, token, *, timeout):
         """Modify an existing lock's timeout.
 
         token:
@@ -283,7 +283,7 @@ class LockStorageDict(object):
             self._lock.release()
         return True
 
-    def get_lock_list(self, path, include_root, include_children, token_only):
+    def get_lock_list(self, path, *, include_root, include_children, token_only):
         """Return a list of direct locks for <path>.
 
         Expired locks are *not* returned (but may be purged).
@@ -301,7 +301,7 @@ class LockStorageDict(object):
         Returns:
             List of valid lock dictionaries (may be empty).
         """
-        assert compat.is_native(path)
+        assert util.is_str(path)
         assert path and path.startswith("/")
         assert include_root or include_children
 

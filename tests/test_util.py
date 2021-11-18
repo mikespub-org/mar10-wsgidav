@@ -3,22 +3,23 @@
 # Licensed under the MIT license:
 # http://www.opensource.org/licenses/mit-license.php
 """Unit tests for wsgidav.util"""
-from __future__ import print_function
 
 import logging
 import logging.handlers
 import unittest
+from io import StringIO
 
-from wsgidav.compat import StringIO
 from wsgidav.util import (
     BASE_LOGGER_NAME,
+    checked_etag,
     get_module_logger,
     init_logging,
     is_child_uri,
     is_equal_or_child_uri,
     join_uri,
-    lstripstr,
+    parse_if_match_header,
     pop_path,
+    removeprefix,
     shift_path,
 )
 
@@ -63,9 +64,9 @@ class BasicTest(unittest.TestCase):
         assert is_equal_or_child_uri("/a/b", "/a/b/c")
         assert is_equal_or_child_uri("/a/b", "/a/b/c")
 
-        assert lstripstr("/dav/a/b", "/dav") == "/a/b"
-        assert lstripstr("/dav/a/b", "/DAV") == "/dav/a/b"
-        assert lstripstr("/dav/a/b", "/DAV", True) == "/a/b"
+        assert removeprefix("/dav/a/b", "/dav") == "/a/b"
+        assert removeprefix("/dav/a/b", "/DAV") == "/dav/a/b"
+        assert removeprefix("/dav/a/b", "/DAV", ignore_case=True) == "/a/b"
 
         assert pop_path("/a/b/c") == ("a", "/b/c")
         assert pop_path("/a/b/") == ("a", "/b/")
@@ -79,6 +80,19 @@ class BasicTest(unittest.TestCase):
         self.assertEqual(shift_path("/a/b", "/c"), ("c", "/a/b/c", ""))
         self.assertEqual(shift_path("/a/b/c", "/"), ("", "/a/b/c", ""))
         self.assertEqual(shift_path("/a/b/c", ""), ("", "/a/b/c", ""))
+
+        assert checked_etag(None, allow_none=True) is None
+        assert checked_etag("abc") == "abc"
+        self.assertRaises(ValueError, checked_etag, '"abc"')
+        self.assertRaises(ValueError, checked_etag, 'W/"abc"')
+
+        assert parse_if_match_header("") == []
+        assert parse_if_match_header("  ") == []
+        assert parse_if_match_header("*") == ["*"]
+        assert parse_if_match_header("abc,def") == ["abc", "def"]
+        assert parse_if_match_header(" abc , def") == ["abc", "def"]
+        assert parse_if_match_header(' "abc" , def ') == ["abc", "def"]
+        assert parse_if_match_header(' W/"abc" , def ') == ["abc", "def"]
 
 
 class LoggerTest(unittest.TestCase):
@@ -162,7 +176,12 @@ class LoggerTest(unittest.TestCase):
 
     def testCliLogging(self):
         """CLI initializes logging."""
-        config = {"verbose": 3, "enable_loggers": ["test"]}
+        config = {
+            "verbose": 3,
+            "logging": {
+                "enable_loggers": ["test"],
+            },
+        }
         init_logging(config)
 
         _baseLogger = logging.getLogger(BASE_LOGGER_NAME)

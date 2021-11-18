@@ -8,8 +8,6 @@ Configuration
 .. toctree::
    :maxdepth: 1
 
-   sample_wsgidav_conf
-
 
 The :class:`~wsgidav.wsgidav_app.WsgiDAVApp` object is configured by passing
 a Python ``dict`` with distinct options, that define
@@ -52,21 +50,20 @@ passed as arguments, e.g.::
     Serving on http://0.0.0.0:8080 ...
 
 Much more options are available when a configuration file is used.
-By default ``wsgidav.yaml``,  ``wsgidav.json``, and ``wsgidav.conf`` are searched in the
+By default ``wsgidav.yaml`` and  ``wsgidav.json`` are searched in the
 local directory.
 An alternative file name can be specified like so::
 
     $ wsgidav --config=my_config.yaml
 
-To *prevent* the use of of a local default configuration file, use this option::
+To *prevent* the use of a local default configuration file, use this option::
 
     $ wsgidav --no-config
 
 The options described below can be defined for the CLI either
 
-  * in `YAML <http://yaml.org/spec/1.2/spec.html>`_ syntax inside a wsgidav.yaml file,
-  * in `JSON <http://www.json.org>`_ syntax inside a wsgidav.json file, or
-  * in Python syntax inside a wsgidav.conf file.
+  * in `YAML <https://yaml.org/spec/>`_ syntax inside a wsgidav.yaml file
+  * or `JSON <https://www.json.org/>`_ syntax inside a wsgidav.json file
 
 .. note::
    The three supported file formats are just different ways for the CLI to
@@ -79,8 +76,7 @@ For a start, copy
 :download:`YAML Sample Configuration<../../sample_wsgidav.yaml>`
 and edit it to your needs.
 (Alternatively use
-:download:`JSON Sample Configuration<../sample_wsgidav.json>` or
-:download:`Python Sample Configuration<../sample_wsgidav.conf>`.)
+:download:`JSON Sample Configuration<../sample_wsgidav.json>`.)
 
 
 Verbosity Level
@@ -195,6 +191,16 @@ should be explicitly listed::
         - wsgidav.http_authenticator.HTTPAuthenticator
         - wsgidav.dir_browser.WsgiDavDirBrowser
         - wsgidav.request_resolver.RequestResolver
+
+It is also possible to pass options as named args (i.e. 'kwargs')::
+
+    ...
+    middleware_stack:
+        ...
+        - dozer.Profiler:
+            app: "${application}"
+            profile_path: /tmp
+        ...
 
 Note that the external middleware must be available, for example by calling
 ``pip install Doze``, so this will not be possible if WsgiDAV is running from
@@ -376,7 +382,7 @@ Sample ``wsgidav.yaml``
 The `YAML <http://yaml.org/spec/1.2/spec.html>`_ syntax is probably the most
 concise format to define configuration:
 
-:download:`Download Sample Configuration<../sample_wsgidav.conf>`.
+:download:`Download Sample Configuration<../sample_wsgidav.yaml>`.
 
 .. literalinclude:: ../../sample_wsgidav.yaml
     :linenos:
@@ -390,15 +396,3 @@ The structure is identical to the YAML format.
 
 See the :doc:`sample_wsgidav.json` example.
 (Note that the parser allows JavaScript-style comments)
-
-
-Sample ``wsgidav.conf``
------------------------
-
-This format uses plain Python syntax, which allows us to use Python data
-structures, and even write helper functions, etc.
-
-This is the most powerful and flexible format, that can be used in complex
-scenarios.
-
-See the :doc:`sample_wsgidav_conf` example.

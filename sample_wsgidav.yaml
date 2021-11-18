@@ -1,26 +1,43 @@
 # WsgiDAV configuration file
 #
-# 1. Rename this file to `wsgidav.yaml`
-# 2. Adjust settings as appropriate
+# 1. Rename this file to `wsgidav.yaml`.
+# 2. Adjust settings as appropriate.
 # 3. Run `wsgidav` from the same directory or pass file path with `--config` option.
 #
-# See http://wsgidav.readthedocs.io/en/latest/user_guide_configure.html
+# See https://wsgidav.readthedocs.io/en/latest/user_guide_configure.html
 #
 # ============================================================================
 # SERVER OPTIONS
 
-server: "cheroot"
+#: Run WsgiDAV inside this  WSGI server.
+#: Supported servers:
+#:     cheroot, ext-wsgiutils, gevent, gunicorn, paste, uvicorn, wsgiref
+#: 'wsgiref' and 'ext_wsgiutils' are simple builtin servers that should *not* be
+#: used in production.
+#: All other servers must have been installed before, e.g. `pip install cheroot`.
+#: (The binary MSI distribution already includes 'cheroot'.)
+#: Default: "cheroot", use the `--server` command line option to change this.
 
-# Server specific arguments, for example
-# cheroot: https://cheroot.cherrypy.org/en/latest/pkg/cheroot.wsgi.html#cheroot.wsgi.Server
-# server_args:
-#     numthreads: 50
+server: cheroot
 
+#: Server specific arguments, passed to the server. For example cheroot:
+#:   https://cheroot.cherrypy.dev/en/latest/pkg/cheroot.wsgi.html#cheroot.wsgi.Server
+server_args:
+    # max: -1
+    # numthreads: 10
+    # request_queue_size: 5
+    # shutdown_timeout: 5
+    # timeout: 10
+    verbose: 0
+
+# Server hostname (default: localhost, use --host on command line)
 host: 0.0.0.0
+
+# Server port (default: 8080, use --port on command line)
 port: 8080
 
-# Add custom response headers (list of header-name / header-value tuples):
-#response_headers:
+#: Add custom response headers (list of header-name / header-value tuples):
+# response_headers:
 #    - ["Access-Control-Allow-Origin", "http://example.org"]
 
 # Transfer block size in bytes
@@ -31,23 +48,28 @@ block_size: 8192
 add_header_MS_Author_Via: true
 
 hotfixes:
-    winxp_accept_root_share_login: false
-    win_accept_anonymous_options: false
-    #: See issue #8
+    #: Handle Microsoft's Win32LastModifiedTime property.
+    #: This is useful only in the case when you copy files from a Windows
+    #: client into a WebDAV share. Windows sends the "last modified" time of
+    #: the file in a Microsoft extended property called "Win32LastModifiedTime"
+    #: instead of the standard WebDAV property "getlastmodified". So without
+    #: this config option set to "True", the "last modified" time of the copied
+    #: file will be "now" instead of its original value.
+    #: The proper solution for dealing with the Windows WebDAV client is to use
+    #: a persistent property manager. This setting is merely a work-around.
+    #: NOTE: Works with Win10, can't work with Win7. Other versions untested.
+    emulate_win32_lastmod: false
+
+    #: Re-encode PATH_INFO using UTF-8 (falling back to ISO-8859-1).
+    #: This seems to be wrong, since per PEP 3333 PATH_INFO is always ISO-8859-1
+    #: encoded (see https://www.python.org/dev/peps/pep-3333/#unicode-issues).
+    #: However it also seems to resolve errors when accessing resources with
+    #: Chinese characters, for example (see issue #73).
+    re_encode_path_info: true
+    #: Force unquoting of PATH_INFO. This should already be done by the WSGI
+    #: Framework, so this setting should only be used to fix unexpected problems
+    #: there (false fixes issue #8, true fixes issue #228).
     unquote_path_info: false
-    #: (See issue #73) Set null to activate on Python 3 only
-    re_encode_path_info: null
-    # Handle Microsoft's Win32LastModifiedTime property.
-    # This is useful only in the case when you copy files from a Windows
-    # client into a WebDAV share. Windows sends the "last modified" time of
-    # the file in a Microsoft extended property called "Win32LastModifiedTime"
-    # instead of the standard WebDAV property "getlastmodified". So without
-    # this config option set to "True", the "last modified" time of the copied
-    # file will be "now" instead of its original value.
-    # The proper solution for dealing with the Windows WebDAV client is to use
-    # a persistent property manager. This setting is merely a work-around.
-    # NOTE: Works with Win10, can't work with Win7. Other versions untested.
-    emulate_win32_lastmod: true
 
 
 # ----------------------------------------------------------------------------
@@ -66,7 +88,9 @@ hotfixes:
 
 # ----------------------------------------------------------------------------
 
-#: Modify to customize the WSGI application stack:
+#: Modify to customize the WSGI application stack.
+#: See here for an example how to add custom middlewares:
+#:   https://wsgidav.readthedocs.io/en/latest/user_guide_configure.html#middleware-stack
 middleware_stack:
     - wsgidav.debug_filter.WsgiDavDebugFilter
     - wsgidav.error_printer.ErrorPrinter
@@ -154,34 +178,77 @@ pam_dc:
     encoding: "utf-8"
     resetcreds: true
 
+# ----------------------------------------------------------------------------
+# Property Manager
+# null: (default) no support for dead properties
+# true: Use wsgidav.prop_man.property_manager.PropertyManager
+#       which is an in-memory property manager (NOT persistent)
+property_manager: true
+
+# Example:
+# Use PERSISTENT shelve based property manager
+# from wsgidav.prop_man.property_manager import ShelvePropertyManager
+# property_manager: ShelvePropertyManager("wsgidav-props.shelve")
+
+#: Optional additional live property modification
+#: Note: by default live properties like file size and last-modified time are
+#: read-only, but that can be overriden here if the underlying DAV provider
+#: supports it. For now only the FileSystemProvider supports it and only namely
+#: changes to the last-modified timestamp. Enable it with the mutable_live_props
+#: list as below to allow clients to use the utime system call or e.g. the
+#: touch or cp / rsync commands with the preserve-timestamp flags on a mounted
+#: DAV share.
+#: Please note that the timestamp is set on the actual file or directory, so it
+#: is persistent even for in-memory property managers. It should also be noted
+#: that mutable last-modified may not be compliant with the RFC 4918.
+mutable_live_props:
+    # Enable to allow clients to use e.g. the touch or cp / rsync commands with the
+    # preserve-timestamp flags in a mounted DAV share (may be RFC4918 incompliant)
+    - "{DAV:}getlastmodified"
+
+# ----------------------------------------------------------------------------
+# Lock Manager
+#
+# Default:        true, i.e. use wsgidav.lock_storage.LockStorageDict
+# Also available: wsgidav.lock_storage.LockStorageShelve
+#
+# Check the documentation on how to develop custom lock managers.
+# Note that the default LockStorageDict works in-memory, so it is NOT
+# persistent.
+# Example:
+#   Use PERSISTENT shelve based lock manager
+#   from wsgidav.lock_storage import LockStorageShelve
+#   lock_manager = LockStorageShelve("wsgidav-locks.shelve")
+lock_manager: true
+
+
 
 # ==============================================================================
 # DEBUGGING
 
-#: Set verbosity level (but will be overridden by -v or -q arguments)
+#: Set verbosity level (can be overridden by -v or -q arguments)
 verbose: 3
 
-#: Set logging output format
-#: (see https://docs.python.org/3/library/logging.html#logging.Formatter)
-logger_format: "%(asctime)s.%(msecs)03d - <%(thread)05d> %(name)-27s %(levelname)-8s: %(message)s"
-#logger_format: "%(asctime)s.%(msecs)03d - %(levelname)-8s: %(message)s"
-logger_date_format: "%H:%M:%S"
+logging:
+    #: Set logging output format
+    #: (see https://docs.python.org/3/library/logging.html#logging.Formatter)
+    logger_date_format: "%H:%M:%S"
+    logger_format: "%(asctime)s.%(msecs)03d - %(levelname)-8s: %(message)s"
+    # Example: Add date,thread id, and logger name:
+    # logger_date_format: ""%Y-%m-%d %H:%M:%S"
+    # logger_format: "%(asctime)s.%(msecs)03d - <%(thread)05d> %(name)-27s %(levelname)-8s: %(message)s"
 
-#: Let ErrorPrinter middleware catch all exceptions to return as 500 Internal Error
-error_printer:
-    catch_all: true
+    #: Enable specific module loggers
+    #: E.g. ["lock_manager", "property_manager", "http_authenticator", ...]
+    # enable_loggers: ["http_authenticator", ]
 
-# Enable specific module loggers
-# E.g. ["lock_manager", "property_manager", "http_authenticator", ...]
-# enable_loggers: ["http_authenticator", ]
+    # Enable max. logging for certain http methods
+    # E.g. ["COPY", "DELETE", "GET", "HEAD", "LOCK", "MOVE", "OPTIONS", "PROPFIND", "PROPPATCH", "PUT", "UNLOCK"]
+    debug_methods: []
 
-# Enable max. logging for certain http methods
-# E.g. ["COPY", "DELETE", "GET", "HEAD", "LOCK", "MOVE", "OPTIONS", "PROPFIND", "PROPPATCH", "PUT", "UNLOCK"]
-debug_methods: []
-
-# Enable max. logging during  litmus suite tests that contain certain strings
-# E.g. ["lock_excl", "notowner_modify", "fail_cond_put_unlocked", ...]
-debug_litmus: []
+    # Enable max. logging during  litmus suite tests that contain certain strings
+    # E.g. ["lock_excl", "notowner_modify", "fail_cond_put_unlocked", ...]
+    debug_litmus: []
 
 
 # ----------------------------------------------------------------------------
@@ -202,11 +269,10 @@ dir_browser:
     show_user: true
     show_logout: true
     #: Send <dm:mount> response if request URL contains '?davmount'
-    #: Also add a respective link at the top of the listing
     #: (See https://tools.ietf.org/html/rfc4709)
-    davmount: false
-    #: Add an 'open as webfolder' link (requires Windows IE <= 7!)
-    ms_mount: false
+    davmount: true
+    #: Add a 'Mount' link at the top of the listing
+    davmount_links: false
     #: Invoke MS Office documents for editing using WebDAV by adding a JavaScript
     #: click handler.
     #: - For IE 11 and below invokes the SharePoint ActiveXObject("SharePoint.OpenDocuments")
@@ -214,35 +280,9 @@ dir_browser:
     #:   https://docs.microsoft.com/en-us/previous-versions/office/developer/sharepoint-2010/ff407576(v%3Doffice.14)
     #: - Otherwise the Office URL prefix is used (e.g. 'ms-word:ofe|u|http://server/path/file.docx')
     ms_sharepoint_support: true
+    #: Invoke Libre Office documents for editing using WebDAV
+    libre_office_support: true
     #: The path to the directory that contains template.html and associated
     #: assets.
     #: The default is the htdocs directory within the dir_browser directory.
     htdocs_path: null
-
-
-# ----------------------------------------------------------------------------
-# Property Manager
-# null: (default) Don't support dead properties
-# true: Use in-memory property manager (NOT persistent)
-property_manager: true
-
-# Example:
-# Use PERSISTENT shelve based property manager
-# from wsgidav.prop_man.property_manager import ShelvePropertyManager
-# property_manager: ShelvePropertyManager("wsgidav-props.shelve")
-
-# Optional additional live property modification
-mutable_live_props:
-    # Enable to allow clients to use e.g. the touch or cp / rsync commands with the
-    # preserve-timestamp flags in a mounted DAV share (may be RFC4918 incompliant)
-    - "{DAV:}getlastmodified"
-
-# ----------------------------------------------------------------------------
-# Lock Manager
-
-lock_manager: true
-
-# Example:
-# Use PERSISTENT shelve based lock manager
-# from wsgidav.lock_storage import LockStorageShelve
-# lock_manager = LockStorageShelve("wsgidav-locks.shelve")

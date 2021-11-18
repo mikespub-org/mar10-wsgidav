@@ -24,6 +24,8 @@ __docformat__ = "reStructuredText"
 
 # Use these settings, if config file does not define them (or is totally missing)
 DEFAULT_VERBOSE = 3
+DEFAULT_LOGGER_DATE_FORMAT = "%H:%M:%S"
+DEFAULT_LOGGER_FORMAT = "%(asctime)s.%(msecs)03d - %(levelname)-8s: %(message)s"
 
 DEFAULT_CONFIG = {
     "server": "cheroot",
@@ -35,10 +37,10 @@ DEFAULT_CONFIG = {
     "add_header_MS_Author_Via": True,
     "hotfixes": {
         "emulate_win32_lastmod": False,  # True: support Win32LastModifiedTime
-        "re_encode_path_info": None,  # (See issue #73) None: activate on Python 3
-        "unquote_path_info": False,  # See issue #8
-        "win_accept_anonymous_options": False,
-        "winxp_accept_root_share_login": False,  # Was True in v2.4
+        "re_encode_path_info": True,  # (See issue #73)
+        "unquote_path_info": False,  # See issue #8, #228
+        # "win_accept_anonymous_options": False,
+        # "winxp_accept_root_share_login": False,
     },
     "property_manager": None,  # True: use property_manager.PropertyManager
     "mutable_live_props": [],
@@ -62,18 +64,23 @@ DEFAULT_CONFIG = {
     },
     #: Used by SimpleDomainController only
     "simple_dc": {"user_mapping": {}},  # NO anonymous access by default
-    # Verbose Output
-    # 0 - no output
-    # 1 - no output (excepting application exceptions)
-    # 2 - show warnings
-    # 3 - show single line request summaries (for HTTP logging)
-    # 4 - show additional events
-    # 5 - show full request/response header info (HTTP Logging)
-    #     request body and GET response bodies not shown
+    #: Verbose Output
+    #: 0 - no output
+    #: 1 - no output (excepting application exceptions)
+    #: 2 - show warnings
+    #: 3 - show single line request summaries (for HTTP logging)
+    #: 4 - show additional events
+    #: 5 - show full request/response header info (HTTP Logging)
+    #:     request body and GET response bodies not shown
     "verbose": DEFAULT_VERBOSE,
-    # Error printer options
-    "error_printer": {"catch_all": True},  # False,
-    "enable_loggers": [],
+    #: Log options
+    "logging": {
+        "logger_date_format": DEFAULT_LOGGER_DATE_FORMAT,
+        "logger_format": DEFAULT_LOGGER_FORMAT,
+        "enable_loggers": [],
+        "debug_methods": [],
+    },
+    #: Options for `WsgiDavDirBrowser`
     "dir_browser": {
         "enable": True,  # Render HTML listing for GET requests on collections
         # List of fnmatch patterns:
@@ -85,13 +92,12 @@ DEFAULT_CONFIG = {
         "icon": True,
         "response_trailer": True,  # Raw HTML code, appended as footer (True: use a default)
         "show_user": True,  # Show authenticated user an realm
-        # Send <dm:mount> response if request URL contains '?davmount'
-        "davmount": False,
-        # Add an 'open as webfolder' link (requires Windows clients):
-        "ms_mount": False,
-        "ms_sharepoint_support": True,  # Invoke MS Offce documents for editing using WebDAV
-        # "ms_sharepoint_plugin": False,  # Invoke MS Offce documents for editing using WebDAV
-        # "ms_sharepoint_urls": False,  # Prepend 'ms-word:ofe|u|' to URL for MS Offce documents
+        # Send <dm:mount> response if request URL contains '?davmount' (rfc4709)
+        "davmount": True,
+        # Add 'Mount' link at the top
+        "davmount_links": False,
+        "ms_sharepoint_support": True,  # Invoke MS Office documents for editing using WebDAV
+        "libre_office_support": True,  # Invoke Libre Office documents for editing using WebDAV
         # The path to the directory that contains template.html and associated assets.
         # The default is the htdocs directory within the dir_browser directory.
         "htdocs_path": None,

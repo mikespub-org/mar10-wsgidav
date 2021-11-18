@@ -40,7 +40,7 @@ import random
 import time
 from pprint import pformat
 
-from wsgidav import compat, util
+from wsgidav import util
 from wsgidav.dav_error import (
     HTTP_LOCKED,
     DAVError,
@@ -60,13 +60,13 @@ _logger = util.get_module_logger(__name__)
 
 
 def generate_lock_token():
-    return "opaquelocktoken:" + compat.to_native(hex(random.getrandbits(256)))
+    return "opaquelocktoken:" + util.to_str(hex(random.getrandbits(256)))
 
 
 def normalize_lock_root(path):
     # Normalize root: /foo/bar
     assert path
-    path = compat.to_native(path)
+    path = util.to_str(path)
     path = "/" + path.strip("/")
     return path
 
@@ -100,24 +100,24 @@ def lock_string(lock_dict):
 
 
 def validate_lock(lock):
-    assert compat.is_native(lock["root"])
+    assert util.is_str(lock["root"])
     assert lock["root"].startswith("/")
     assert lock["type"] == "write"
     assert lock["scope"] in ("shared", "exclusive")
     assert lock["depth"] in ("0", "infinity")
-    assert compat.is_bytes(lock["owner"]), lock  # XML bytestring
+    assert util.is_bytes(lock["owner"]), lock  # XML bytestring
     # raises TypeError:
     timeout = float(lock["timeout"])
     assert timeout > 0 or timeout == -1, "timeout must be positive or -1"
-    assert compat.is_native(lock["principal"])
+    assert util.is_str(lock["principal"])
     if "token" in lock:
-        assert compat.is_native(lock["token"])
+        assert util.is_str(lock["token"])
 
 
 # ========================================================================
 # LockManager
 # ========================================================================
-class LockManager(object):
+class LockManager:
     """
     Implements locking functionality using a custom storage layer.
 
@@ -217,6 +217,7 @@ class LockManager(object):
 
     def acquire(
         self,
+        *,
         url,
         lock_type,
         lock_scope,
@@ -244,13 +245,13 @@ class LockManager(object):
         finally:
             self._lock.release()
 
-    def refresh(self, token, timeout=None):
+    def refresh(self, token, *, timeout=None):
         """Set new timeout for lock, if existing and valid."""
         if timeout is None:
             timeout = LockManager.LOCK_TIME_OUT_DEFAULT
-        return self.storage.refresh(token, timeout)
+        return self.storage.refresh(token, timeout=timeout)
 
-    def get_lock(self, token, key=None):
+    def get_lock(self, token, *, key=None):
         """Return lock_dict, or None, if not found or invalid.
 
         Side effect: if lock is expired, it will be purged and None is returned.
@@ -280,7 +281,7 @@ class LockManager(object):
 
     def is_token_locked_by_user(self, token, principal):
         """Return True, if <token> exists, is valid, and bound to <principal>."""
-        return self.get_lock(token, "principal") == principal
+        return self.get_lock(token, key="principal") == principal
 
     def get_url_lock_list(self, url):
         """Return list of lock_dict, if <url> is protected by at least one direct, valid lock.
@@ -293,7 +294,7 @@ class LockManager(object):
         )
         return lockList
 
-    def get_indirect_url_lock_list(self, url, principal=None):
+    def get_indirect_url_lock_list(self, url, *, principal=None):
         """Return a list of valid lockDicts, that protect <path> directly or indirectly.
 
         If a principal is given, only locks owned by this principal are returned.
@@ -325,7 +326,7 @@ class LockManager(object):
 
     def is_url_locked_by_token(self, url, lock_token):
         """Check, if url (or any of it's parents) is locked by lock_token."""
-        lockUrl = self.get_lock(lock_token, "root")
+        lockUrl = self.get_lock(lock_token, key="root")
         return lockUrl and util.is_equal_or_child_uri(lockUrl, url)
 
     def remove_all_locks_from_url(self, url):
@@ -431,7 +432,7 @@ class LockManager(object):
             raise DAVError(HTTP_LOCKED, err_condition=errcond)
         return
 
-    def check_write_permission(self, url, depth, token_list, principal):
+    def check_write_permission(self, *, url, depth, token_list, principal):
         """Check, if <principal> can modify <url>, otherwise raise HTTP_LOCKED.
 
         If modifying <url> is prevented by a lock, DAVError(HTTP_LOCKED) is
@@ -459,7 +460,7 @@ class LockManager(object):
 
         @return: None or raise error
         """
-        assert compat.is_native(url)
+        assert util.is_str(url)
         assert depth in ("0", "infinity")
         _logger.debug(
             "check_write_permission({}, {}, {}, {})".format(

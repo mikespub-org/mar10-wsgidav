@@ -52,8 +52,9 @@ import inspect
 import platform
 import sys
 import time
+from urllib.parse import unquote
 
-from wsgidav import __version__, compat, util
+from wsgidav import __version__, util
 from wsgidav.dav_provider import DAVProvider
 from wsgidav.default_conf import DEFAULT_CONFIG
 from wsgidav.fs_dav_provider import FilesystemProvider
@@ -85,28 +86,36 @@ def _check_config(config):
         "acceptbasic": "http_authenticator.accept_basic",
         "acceptdigest": "http_authenticator.accept_digest",
         "catchall": "error_printer.catch_all",
+        "debug_litmus": "logging.debug_litmus",
+        "debug_methods": "logging.debug_methods",
         "defaultdigest": "http_authenticator.default_to_digest",
         "dir_browser.app_class": "middleware_stack",
-        # "dir_browser.enable": "middleware_stack",
+        "dir_browser.ms_mount": "(removed)",
         "dir_browser.ms_sharepoint_plugin": "dir_browser.ms_sharepoint_support",
         "dir_browser.ms_sharepoint_url": "dir_browser.ms_sharepoint_support",
         "domain_controller": "http_authenticator.domain_controller",
         "domaincontroller": "http_authenticator.domain_controller",
-        "emulate_win32_lastmod": "hotfix.emulate_win32_lastmod",
+        "emulate_win32_lastmod": "hotfixes.emulate_win32_lastmod",
+        "enable_loggers": "logging.enable_loggers",
+        "error_printer.catch_all": "(removed)",
         "http_authenticator.preset_domain": "nt_dc.preset_domain",
         "http_authenticator.preset_server": "nt_dc.preset_server",
         "locksmanager": "lock_manager",
+        "logger_date_format": "logging.logger_date_format",
+        "logger_format": "logging.logger_format",
+        "logging.verbose": "verbose",  # prevent a likely mistake
         "mutableLiveProps": "mutable_live_props",
         "propsmanager": "property_manager",
-        "re_encode_path_info": "hotfix.re_encode_path_info",
+        "re_encode_path_info": "hotfixes.re_encode_path_info",
         "trusted_auth_header": "http_authenticator.trusted_auth_header",
-        "unquote_path_info": "hotfix.unquote_path_info",
+        "unquote_path_info": "hotfixes.unquote_path_info",
         "user_mapping": "simple_dc.user_mapping",
+        # "dir_browser.enable": "middleware_stack",
     }
     for old, new in deprecated_fields.items():
         if "." in old:
             k, v = old.split(".", 1)
-            d = config[k]
+            d = config.get(k, {})
         else:
             d, v = config, old
 
@@ -122,7 +131,7 @@ def _check_config(config):
 # ========================================================================
 # WsgiDAVApp
 # ========================================================================
-class WsgiDAVApp(object):
+class WsgiDAVApp:
     def __init__(self, config):
 
         self.config = copy.deepcopy(DEFAULT_CONFIG)
@@ -136,10 +145,7 @@ class WsgiDAVApp(object):
 
         hotfixes = config.get("hotfixes", {})
 
-        self.re_encode_path_info = hotfixes.get("re_encode_path_info", None)
-        if self.re_encode_path_info is None:
-            self.re_encode_path_info = compat.PY3
-
+        self.re_encode_path_info = hotfixes.get("re_encode_path_info", True)
         self.unquote_path_info = hotfixes.get("unquote_path_info", False)
 
         lock_storage = config.get("lock_manager")
@@ -195,7 +201,7 @@ class WsgiDAVApp(object):
             # The middleware stack configuration may contain plain strings, dicts,
             # classes, or objects
             app = None
-            if compat.is_basestring(mw):
+            if util.is_basestring(mw):
                 # If a plain string is passed, try to import it, assuming
                 # `BaseMiddleware` signature
                 app_class = dynamic_import_class(mw)
@@ -203,15 +209,17 @@ class WsgiDAVApp(object):
             elif type(mw) is dict:
                 # If a dict with one entry is passed, use the key as module/class name
                 # and the value as constructor arguments (positional or kwargs).
-                assert len(mw) == 1
+                if len(mw) != 1:
+                    raise ValueError(f"Invalid middleware opts: {mw}")
                 name, args = list(mw.items())[0]
+                if type(args) not in (dict, list, tuple):
+                    raise ValueError(f"Invalid middleware opts for {name}: {args}")
                 expand = {"${application}": self.application}
-                app = dynamic_instantiate_middleware(name, args, expand)
+                app = dynamic_instantiate_middleware(name, args, expand=expand)
             elif inspect.isclass(mw):
                 # If a class is passed, assume BaseMiddleware (or compatible)
-                assert issubclass(
-                    mw, BaseMiddleware
-                )  # TODO: remove this assert with 3.0
+                # TODO: remove this assert with 3.0
+                assert issubclass(mw, BaseMiddleware)
                 app = mw(self, self.application, config)
             else:
                 # Otherwise assume an initialized middleware instance
@@ -234,8 +242,6 @@ class WsgiDAVApp(object):
             else:
                 _logger.error("Could not add middleware {}.".format(mw))
 
-        domain_controller
-        # Print info
         _logger.info(
             "WsgiDAV/{} Python/{} {}".format(
                 __version__, util.PYTHON_VERSION, platform.platform(aliased=True)
@@ -288,18 +294,18 @@ class WsgiDAVApp(object):
                     )
         return
 
-    def add_provider(self, share, provider, readonly=False):
+    def add_provider(self, share, provider, *, readonly=False):
         """Add a provider to the provider_map routing table."""
         # Make sure share starts with, or is '/'
         share = "/" + share.strip("/")
         assert share not in self.provider_map
 
-        if compat.is_basestring(provider):
+        if util.is_basestring(provider):
             # Syntax:
             #   <mount_path>: <folder_path>
             # We allow a simple string as 'provider'. In this case we interpret
             # it as a file system root folder that is published.
-            provider = FilesystemProvider(provider, readonly)
+            provider = FilesystemProvider(provider, readonly=readonly)
         elif type(provider) in (dict,):
             if "provider" in provider:
                 # Syntax:
@@ -312,7 +318,7 @@ class WsgiDAVApp(object):
                 # Syntax:
                 #   <mount_path>: {"root": <path>, "redaonly": <bool>}
                 provider = FilesystemProvider(
-                    provider["root"], bool(provider.get("readonly", False))
+                    provider["root"], readonly=bool(provider.get("readonly", False))
                 )
         elif type(provider) in (list, tuple):
             raise ValueError(
@@ -381,18 +387,18 @@ class WsgiDAVApp(object):
         # example.
         # This is done by default for Python 3, but can be turned off in settings.
         if self.re_encode_path_info:
-            path = environ["PATH_INFO"] = compat.wsgi_to_bytes(path).decode()
+            path = environ["PATH_INFO"] = util.wsgi_to_bytes(path).decode()
 
         # We optionally unquote PATH_INFO here, although this should already be
-        # done by the server (#8).
+        # done by the server (#8, #228).
         if self.unquote_path_info:
-            path = compat.unquote(environ["PATH_INFO"])
+            path = unquote(environ["PATH_INFO"])
 
         # GC issue 22: Pylons sends root as u'/'
-        if not compat.is_native(path):
+        if not util.is_str(path):
             _logger.warning("Got non-native PATH_INFO: {!r}".format(path))
             # path = path.encode("utf8")
-            path = compat.to_native(path)
+            path = util.to_str(path)
 
         # Always adding these values to environ:
         environ["wsgidav.config"] = self.config
@@ -433,7 +439,7 @@ class WsgiDAVApp(object):
             environ["PATH_INFO"] = path[len(share) :]
 
         # assert isinstance(path, str)
-        assert compat.is_native(path)
+        assert util.is_str(path)
         # See http://mail.python.org/pipermail/web-sig/2007-January/002475.html
         # for some clarification about SCRIPT_NAME/PATH_INFO format
         # SCRIPT_NAME starts with '/' or is empty

@@ -54,7 +54,7 @@ These configuration settings are evaluated:
 import sys
 import threading
 
-from wsgidav import compat, util
+from wsgidav import util
 from wsgidav.middleware import BaseMiddleware
 from wsgidav.util import safe_re_encode
 
@@ -67,12 +67,13 @@ class WsgiDavDebugFilter(BaseMiddleware):
     def __init__(self, wsgidav_app, next_app, config):
         super(WsgiDavDebugFilter, self).__init__(wsgidav_app, next_app, config)
         self._config = config
+        log_opts = config.get("logging") or {}
         # self.out = sys.stdout
         self.passedLitmus = {}
         # These methods boost verbose=2 to verbose=3
-        self.debug_methods = config.get("debug_methods", [])
+        self.debug_methods = log_opts.get("debug_methods", [])
         # Litmus tests containing these string boost verbose=2 to verbose=3
-        self.debug_litmus = config.get("debug_litmus", [])
+        self.debug_litmus = log_opts.get("debug_litmus", [])
         # Exit server, as soon as this litmus test has finished
         self.break_after_litmus = [
             # "locks: 15",
@@ -182,11 +183,11 @@ class WsgiDavDebugFilter(BaseMiddleware):
 
             # Check, if response is a binary string, otherwise we probably have
             # calculated a wrong content-length
-            assert compat.is_bytes(v), v
+            assert util.is_bytes(v), v
 
             # Dump response body
             drb = environ.get("wsgidav.dump_response_body")
-            if compat.is_basestring(drb):
+            if util.is_basestring(drb):
                 # Middleware provided a formatted body representation
                 _logger.info(drb)
                 drb = environ["wsgidav.dump_response_body"] = None

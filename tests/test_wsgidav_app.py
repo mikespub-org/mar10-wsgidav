@@ -11,15 +11,13 @@
     See http://webtest.readthedocs.org/en/latest/
         (successor of http://pythonpaste.org/testing-applications.html)
 """
-from __future__ import print_function
-
-import os
 import shutil
 import sys
 import unittest
-from tempfile import gettempdir
+from urllib.parse import quote
 
-from wsgidav import compat, util
+from tests.util import create_test_folder
+from wsgidav import util
 from wsgidav.fs_dav_provider import FilesystemProvider
 from wsgidav.wsgidav_app import WsgiDAVApp
 
@@ -43,11 +41,8 @@ except ImportError:
 class ServerTest(unittest.TestCase):
     """Test wsgidav_app using paste.fixture."""
 
-    def _makeWsgiDAVApp(self, withAuthentication):
-        self.rootpath = os.path.join(gettempdir(), "wsgidav-test")
-        if not os.path.exists(self.rootpath):
-            os.mkdir(self.rootpath)
-        provider = FilesystemProvider(self.rootpath)
+    def _makeWsgiDAVApp(self, share_path, with_authentication):
+        provider = FilesystemProvider(share_path)
 
         # config = DEFAULT_CONFIG.copy()
         # config.update({
@@ -57,12 +52,12 @@ class ServerTest(unittest.TestCase):
             "http_authenticator": {"domain_controller": None},
             "simple_dc": {"user_mapping": {"*": True}},  # anonymous access
             "verbose": 1,
-            "enable_loggers": [],
+            "logging": {"enable_loggers": []},
             "property_manager": None,  # None: no property manager
             "lock_manager": True,  # True: use lock_manager.LockManager
         }
 
-        if withAuthentication:
+        if with_authentication:
             config["http_authenticator"].update(
                 {
                     "accept_basic": True,
@@ -77,12 +72,13 @@ class ServerTest(unittest.TestCase):
         return WsgiDAVApp(config)
 
     def setUp(self):
-        wsgi_app = self._makeWsgiDAVApp(False)
+        self.root_path = create_test_folder("wsgidav-test")
+        wsgi_app = self._makeWsgiDAVApp(self.root_path, False)
         self.app = webtest.TestApp(wsgi_app)
 
     def tearDown(self):
-        shutil.rmtree(compat.to_unicode(self.rootpath))
         del self.app
+        shutil.rmtree(self.root_path, ignore_errors=True)
 
     def testPreconditions(self):
         """Environment must be set."""
@@ -96,6 +92,8 @@ class ServerTest(unittest.TestCase):
         # Access collection (expect '200 Ok' with HTML response)
         res = app.get("/", status=200)
         assert "WsgiDAV - Index of /" in res, "Could not list root share"
+        assert "readme.txt" in res, "Fixture content"
+        assert "Lotosblütenstengel (蓮花莖).docx" in res, "Encoded fixture content"
 
         # Access unmapped resource (expect '404 Not Found')
         res = app.get("/not-existing-124/", status=404)
@@ -110,10 +108,10 @@ class ServerTest(unittest.TestCase):
         # Big file with 10 MB
         lines = []
         line = "." * (1000 - 6 - len("\n"))
-        for i in compat.xrange(10 * 1000):
+        for i in range(10 * 1000):
             lines.append("%04i: %s\n" % (i, line))
         data3 = "".join(lines)
-        data3 = compat.to_bytes(data3)
+        data3 = util.to_bytes(data3)
 
         # Remove old test files
         app.delete("/file1.txt", expect_errors=True)
@@ -147,7 +145,7 @@ class ServerTest(unittest.TestCase):
         app.request(
             "/file1.txt",
             method="GET",
-            headers={"Content-Length": compat.to_native(len(data1))},
+            headers={"Content-Length": util.to_str(len(data1))},
             body=data1,
             status=415,
         )
@@ -164,10 +162,10 @@ class ServerTest(unittest.TestCase):
         """Handle special characters."""
         app = self.app
         uniData = (
-            u"This is a file with special characters:\n"
-            + u"Umlaute(äöüß)\n"
-            + u"Euro(\u20AC)\n"
-            + u"Male(\u2642)"
+            "This is a file with special characters:\n"
+            + "Umlaute(äöüß)\n"
+            + "Euro(\u20AC)\n"
+            + "Male(\u2642)"
         )
 
         data = uniData.encode("utf8")
@@ -199,14 +197,14 @@ class ServerTest(unittest.TestCase):
 
         def unicode_to_url(s):
             # TODO: Py3: Is this the correct way?
-            return compat.quote(s.encode("utf8"))
+            return quote(s.encode("utf8"))
 
         # äöüß: (part of latin1)
-        __testrw(unicode_to_url(u"/file uml(\u00E4\u00F6\u00FC\u00DF).txt"))
+        __testrw(unicode_to_url("/file uml(\u00E4\u00F6\u00FC\u00DF).txt"))
         # Euro sign (not latin1, but Cp1252)
-        __testrw(unicode_to_url(u"/file euro(\u20AC).txt"))
+        __testrw(unicode_to_url("/file euro(\u20AC).txt"))
         # Male sign (only utf8)
-        __testrw(unicode_to_url(u"/file male(\u2642).txt"))
+        __testrw(unicode_to_url("/file male(\u2642).txt"))
 
     def testAuthentication(self):
         """Require login."""
@@ -218,7 +216,7 @@ class ServerTest(unittest.TestCase):
         app.get("/file1.txt", status=200)
 
         # Re-create test app with authentication
-        wsgi_app = self._makeWsgiDAVApp(True)
+        wsgi_app = self._makeWsgiDAVApp(self.root_path, True)
         app = self.app = webtest.TestApp(wsgi_app)
 
         # Anonymous access must fail (expect 401 Not Authorized)

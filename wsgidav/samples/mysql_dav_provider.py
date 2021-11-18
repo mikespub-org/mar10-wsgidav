@@ -57,15 +57,14 @@ its limitations:
       unnecessary queries to the database.
 
 """
-from __future__ import print_function
-
 import csv
 import hashlib
 import time
+from io import StringIO
 
 import MySQLdb  # @UnresolvedImport
 
-from wsgidav import compat, util
+from wsgidav import util
 from wsgidav.dav_error import (
     HTTP_FORBIDDEN,
     DAVError,
@@ -214,7 +213,7 @@ class MySQLBrowserResource(_DAVResource):
 
         See DAVResource.get_content()
         """
-        filestream = compat.StringIO()
+        filestream = StringIO()
 
         tableName, primKey = self.provider._split_path(self.path)
         if primKey is not None:
@@ -245,7 +244,7 @@ class MySQLBrowserResource(_DAVResource):
         filestream.seek(0)
         return filestream
 
-    def get_property_names(self, is_allprop):
+    def get_property_names(self, *, is_allprop):
         """Return list of supported property names in Clark Notation.
 
         Return supported live and dead properties. (See also DAVProvider.get_property_names().)
@@ -253,7 +252,9 @@ class MySQLBrowserResource(_DAVResource):
         In addition, all table field names are returned as properties.
         """
         # Let default implementation return supported live and dead properties
-        propNames = super(MySQLBrowserResource, self).get_property_names(is_allprop)
+        propNames = super(MySQLBrowserResource, self).get_property_names(
+            is_allprop=is_allprop
+        )
         # Add fieldnames as properties
         tableName, primKey = self.provider._split_path(self.path)
         if primKey is not None:
@@ -476,7 +477,7 @@ class MySQLBrowserProvider(DAVProvider):
         if row is None:
             cursor.close()
             return None
-        val = compat.to_native(row[field_name])
+        val = util.to_str(row[field_name])
         cursor.close()
         return val
 
@@ -527,7 +528,7 @@ class MySQLBrowserProvider(DAVProvider):
             cursor.close()
             return None
         for fname in row.keys():
-            dictRet[fname] = compat.to_native(row[fname])
+            dictRet[fname] = util.to_str(row[fname])
         cursor.close()
         return dictRet
 
@@ -553,7 +554,7 @@ class MySQLBrowserProvider(DAVProvider):
         cursor.execute("SELECT " + field_name + " FROM " + self._db + "." + table_name)
         result_set = cursor.fetchall()
         for row in result_set:
-            retlist.append(compat.to_native(row[field_name]))
+            retlist.append(util.to_str(row[field_name]))
         cursor.close()
         return retlist
 

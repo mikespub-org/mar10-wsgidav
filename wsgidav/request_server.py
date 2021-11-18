@@ -6,7 +6,9 @@
 """
 WSGI application that handles one single WebDAV request.
 """
-from wsgidav import compat, util, xml_tools
+from urllib.parse import unquote, urlparse
+
+from wsgidav import util, xml_tools
 from wsgidav.dav_error import (
     HTTP_BAD_GATEWAY,
     HTTP_BAD_REQUEST,
@@ -30,7 +32,7 @@ from wsgidav.dav_error import (
     as_DAVError,
     get_http_status_string,
 )
-from wsgidav.util import etree
+from wsgidav.util import checked_etag, etree
 
 __docformat__ = "reStructuredText"
 
@@ -42,7 +44,7 @@ DEFAULT_BLOCK_SIZE = 8192
 # ========================================================================
 # RequestServer
 # ========================================================================
-class RequestServer(object):
+class RequestServer:
     def __init__(self, dav_provider):
         self._davProvider = dav_provider
         self.allow_propfind_infinite = True
@@ -62,9 +64,9 @@ class RequestServer(object):
             if self._davProvider.lock_manager is not None:
                 self._possible_methods.extend(["LOCK", "UNLOCK"])
 
-    def __del__(self):
-        # _logger.debug("RequestServer: __del__")
-        pass
+    # def __del__(self):
+    #     # _logger.debug("RequestServer: __del__")
+    #     pass
 
     def __call__(self, environ, start_response):
         assert "wsgidav.verbose" in environ
@@ -146,7 +148,12 @@ class RequestServer(object):
 
     def _fail(self, value, context_info=None, src_exception=None, err_condition=None):
         """Wrapper to raise (and log) DAVError."""
-        util.fail(value, context_info, src_exception, err_condition)
+        util.fail(
+            value,
+            context_info,
+            src_exception=src_exception,
+            err_condition=err_condition,
+        )
 
     def _send_response(
         self, environ, start_response, root_res, success_code, error_list
@@ -198,10 +205,10 @@ class RequestServer(object):
 
         # raise HTTP_LOCKED if conflict exists
         lock_man.check_write_permission(
-            ref_url,
-            depth,
-            environ["wsgidav.ifLockTokenList"],
-            environ["wsgidav.user_name"],
+            url=ref_url,
+            depth=depth,
+            token_list=environ["wsgidav.ifLockTokenList"],
+            principal=environ["wsgidav.user_name"],
         )
 
     def _evaluate_if_headers(self, res, environ):
@@ -231,11 +238,12 @@ class RequestServer(object):
         # Raise HTTP_PRECONDITION_FAILED or HTTP_NOT_MODIFIED, if standard
         # HTTP condition fails
         last_modified = -1  # nonvalid modified time
-        entitytag = "[]"  # Non-valid entity tag
         if res.get_last_modified() is not None:
             last_modified = int(res.get_last_modified())
-        if res.get_etag() is not None:
-            entitytag = res.get_etag()
+
+        entitytag = checked_etag(res.get_etag(), allow_none=True)
+        if entitytag is None:
+            entitytag = "[]"  # Non-valid entity tag
 
         if (
             "HTTP_IF_MODIFIED_SINCE" in environ
@@ -258,7 +266,7 @@ class RequestServer(object):
         locktokenlist = []
         if lock_man:
             lockList = lock_man.get_indirect_url_lock_list(
-                ref_url, environ["wsgidav.user_name"]
+                ref_url, principal=environ["wsgidav.user_name"]
             )
             for lock in lockList:
                 locktokenlist.append(lock["token"])
@@ -644,7 +652,7 @@ class RequestServer(object):
                     raise DAVError(
                         HTTP_INTERNAL_ERROR, "Resource could not be deleted."
                     )
-            except Exception as e:
+            except DAVError as e:
                 error_list.append((childRes.get_href(), as_DAVError(e)))
                 ignore_dict[util.get_uri_parent(childRes.path)] = True
 
@@ -672,7 +680,7 @@ class RequestServer(object):
             WORKAROUND_CHUNK_LENGTH = False
             buf = environ["wsgi.input"].readline()
             environ["wsgidav.some_input_read"] = 1
-            if buf == compat.b_empty:
+            if buf == b"":
                 length = 0
             else:
                 length = int(buf, 16)
@@ -684,14 +692,14 @@ class RequestServer(object):
                 environ["wsgidav.some_input_read"] = 1
                 # Keep receiving until we read expected size or reach
                 # EOF
-                if buf == compat.b_empty:
+                if buf == b"":
                     length = 0
                 else:
                     length -= len(buf)
             else:
                 environ["wsgi.input"].readline()
                 buf = environ["wsgi.input"].readline()
-                if buf == compat.b_empty:
+                if buf == b"":
                     length = 0
                 else:
                     length = int(buf, 16)
@@ -838,11 +846,11 @@ class RequestServer(object):
             _logger.exception("PUT: byte copy failed")
             util.fail(e)
 
-        res.end_write(hasErrors)
+        res.end_write(with_errors=hasErrors)
 
         headers = None
         if res.support_etag():
-            entitytag = res.get_etag()
+            entitytag = checked_etag(res.get_etag(), allow_none=True)
             if entitytag is not None:
                 headers = [("ETag", '"{}"'.format(entitytag))]
 
@@ -874,8 +882,12 @@ class RequestServer(object):
 
         def _debug_exception(e):
             """Log internal exceptions with stacktrace that otherwise would be hidden."""
-            if self._verbose >= 5:
-                _logger.exception("_debug_exception")
+            if isinstance(e, DAVError):
+                if self._verbose >= 5:
+                    _logger.exception("_debug_exception")
+            else:
+                if self._verbose >= 3:
+                    _logger.exception("_debug_exception")
             return
 
         # --- Check source ----------------------------------------------------
@@ -922,7 +934,7 @@ class RequestServer(object):
 
         # Destination header may be quoted (e.g. DAV Explorer sends unquoted,
         # Windows quoted)
-        http_destination = compat.unquote(environ["HTTP_DESTINATION"])
+        http_destination = unquote(environ["HTTP_DESTINATION"])
 
         # Return fragments as part of <path>
         # Fixes litmus -> running `basic': 9. delete_fragment....... WARNING:
@@ -935,7 +947,7 @@ class RequestServer(object):
             _dest_params,
             _dest_query,
             _dest_frag,
-        ) = compat.urlparse(http_destination, allow_fragments=False)
+        ) = urlparse(http_destination, allow_fragments=False)
 
         if src_res.is_collection:
             dest_path = dest_path.rstrip("/") + "/"
@@ -1020,7 +1032,7 @@ class RequestServer(object):
                 handled = src_res.handle_move(dest_path)
             else:
                 isInfinity = environ["HTTP_DEPTH"] == "infinity"
-                handled = src_res.handle_copy(dest_path, isInfinity)
+                handled = src_res.handle_copy(dest_path, depth_infinity=isInfinity)
             assert handled in (True, False) or type(handled) is list
             if type(handled) is list:
                 error_list = handled
@@ -1137,7 +1149,7 @@ class RequestServer(object):
                 # We copy resources and their properties top-down.
                 # Collections are simply created (without members), for
                 # non-collections bytes are copied (overwriting target)
-                sres.copy_move_single(dpath, is_move)
+                sres.copy_move_single(dpath, is_move=is_move)
 
                 # If copy succeeded, and it was a non-collection delete it now.
                 # So the source tree shrinks while the destination grows and we
@@ -1248,13 +1260,13 @@ class RequestServer(object):
                 )
             # TODO: test, if token is owned by user
 
-            lock = lock_man.refresh(submitted_token_list[0], timeout_secs)
+            lock = lock_man.refresh(submitted_token_list[0], timeout=timeout_secs)
 
             # The lock root may be <path>, or a parent of <path>.
             lock_path = provider.ref_url_to_path(lock["root"])
             lock_res = provider.get_resource_inst(lock_path, environ)
 
-            prop_el = xml_tools.make_prop_el()
+            prop_el = xml_tools.make_prop_elem()
             # TODO: handle exceptions in get_property_value
             lockdiscovery_el = lock_res.get_property_value("{DAV:}lockdiscovery")
             prop_el.append(lockdiscovery_el)
@@ -1278,7 +1290,7 @@ class RequestServer(object):
 
         lock_type = None
         lock_scope = None
-        lock_owner = compat.to_bytes("")
+        lock_owner = util.to_bytes("")
         lock_depth = environ.setdefault("HTTP_DEPTH", "infinity")
 
         for linode in lockinfo_el:
@@ -1297,7 +1309,7 @@ class RequestServer(object):
 
             elif linode.tag == "{DAV:}owner":
                 # Store whole <owner> tag, so we can use etree.XML() later
-                lock_owner = xml_tools.xml_to_bytes(linode, pretty_print=False)
+                lock_owner = xml_tools.xml_to_bytes(linode, pretty=False)
 
             else:
                 self._fail(HTTP_BAD_REQUEST, "Invalid node '{}'.".format(linode.tag))
@@ -1326,18 +1338,18 @@ class RequestServer(object):
 
         # May raise DAVError(HTTP_LOCKED):
         lock = lock_man.acquire(
-            res.get_ref_url(),
-            lock_type,
-            lock_scope,
-            lock_depth,
-            lock_owner,
-            timeout_secs,
-            environ["wsgidav.user_name"],
-            submitted_token_list,
+            url=res.get_ref_url(),
+            lock_type=lock_type,
+            lock_scope=lock_scope,
+            lock_depth=lock_depth,
+            lock_owner=lock_owner,
+            timeout=timeout_secs,
+            principal=environ["wsgidav.user_name"],
+            token_list=submitted_token_list,
         )
 
         # Lock succeeded
-        prop_el = xml_tools.make_prop_el()
+        prop_el = xml_tools.make_prop_elem()
         # TODO: handle exceptions in get_property_value
         lockdiscovery_el = res.get_property_value("{DAV:}lockdiscovery")
         prop_el.append(lockdiscovery_el)
@@ -1549,8 +1561,8 @@ class RequestServer(object):
             self._fail(
                 HTTP_FORBIDDEN,
                 "Directory browsing is not enabled."
-                "(to enable it put WsgiDavDirBrowser into middleware_stack"
-                "option and set dir_browser -> enabled = True option.)",
+                "(to enable it put WsgiDavDirBrowser into the middleware_stack "
+                "option and set dir_browser.enabled = True option.)",
             )
 
         self._evaluate_if_headers(res, environ)
@@ -1563,7 +1575,7 @@ class RequestServer(object):
         if last_modified is None:
             last_modified = -1
 
-        entitytag = res.get_etag()
+        entitytag = checked_etag(res.get_etag(), allow_none=True)
         if entitytag is None:
             entitytag = "[]"
 
@@ -1668,7 +1680,7 @@ class RequestServer(object):
                     readbuffer = fileobj.read(self.block_size)
                 else:
                     readbuffer = fileobj.read(contentlengthremaining)
-                assert compat.is_bytes(readbuffer)
+                assert util.is_bytes(readbuffer)
                 yield readbuffer
                 contentlengthremaining -= len(readbuffer)
                 if len(readbuffer) == 0 or contentlengthremaining == 0:

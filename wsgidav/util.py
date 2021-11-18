@@ -6,7 +6,9 @@
 """
 Miscellaneous support functions for WsgiDAV.
 """
+import base64
 import calendar
+import collections.abc
 import logging
 import mimetypes
 import os
@@ -18,8 +20,9 @@ import time
 from email.utils import formatdate, parsedate
 from hashlib import md5
 from pprint import pformat
+from typing import Optional
+from urllib.parse import quote
 
-from wsgidav import compat
 from wsgidav.dav_error import (
     HTTP_BAD_REQUEST,
     HTTP_CREATED,
@@ -42,6 +45,60 @@ _logger = logging.getLogger(BASE_LOGGER_NAME)
 PYTHON_VERSION = "{}.{}.{}".format(
     sys.version_info[0], sys.version_info[1], sys.version_info[2]
 )
+
+filesystemencoding = sys.getfilesystemencoding()
+
+
+# ========================================================================
+# String tools
+# ========================================================================
+
+
+def is_basestring(s):
+    """Return True for any string type (for str/unicode on Py2 and bytes/str on Py3)."""
+    return isinstance(s, (str, bytes))
+
+
+def is_bytes(s):
+    """Return True for bytestrings (for str on Py2 and bytes on Py3)."""
+    return isinstance(s, bytes)
+
+
+def is_str(s):
+    """Return True for native strings (for str on Py2 and Py3)."""
+    return isinstance(s, str)
+
+
+def to_bytes(s, encoding="utf8"):
+    """Convert a text string (unicode) to bytestring (str on Py2 and bytes on Py3)."""
+    if type(s) is not bytes:
+        s = bytes(s, encoding)
+    return s
+
+
+def to_str(s, encoding="utf8"):
+    """Convert data to native str type (bytestring on Py2 and unicode on Py3)."""
+    if type(s) is bytes:
+        s = str(s, encoding)
+    elif type(s) is not str:
+        s = str(s)
+    return s
+
+
+# --- WSGI support ---
+
+
+def unicode_to_wsgi(u):
+    """Convert an environment variable to a WSGI 'bytes-as-unicode' string."""
+    # Taken from PEP3333; the server should already have performed this, when
+    # passing environ to the WSGI application
+    return u.encode(filesystemencoding, "surrogateescape").decode("iso-8859-1")
+
+
+def wsgi_to_bytes(s):
+    """Convert a native string to a WSGI / HTTP compatible byte string."""
+    # Taken from PEP3333
+    return s.encode("iso-8859-1")
 
 
 # ========================================================================
@@ -127,11 +184,6 @@ def init_logging(config):
     The base logger is filtered by the `verbose` configuration option.
     Log entries will have a time stamp and thread id.
 
-    :Parameters:
-        verbose : int
-            Verbosity configuration (0..5)
-        enable_loggers : string list
-            List of module logger names, that will be switched to DEBUG level.
 
     Module loggers
     ~~~~~~~~~~~~~~
@@ -154,7 +206,7 @@ def init_logging(config):
 
     This logger would be enabled by passing its name to init_logging()::
 
-        enable_loggers = ["lock_manager",
+        config.logging.enable_loggers = ["lock_manager",
                           "property_manager",
                          ]
         util.init_logging(2, enable_loggers)
@@ -182,17 +234,23 @@ def init_logging(config):
     +---------+--------+-------------+------------------------+------------------------+
 
     """
-    verbose = config.get("verbose", 3)
+    from wsgidav.default_conf import DEFAULT_LOGGER_DATE_FORMAT, DEFAULT_LOGGER_FORMAT
 
-    enable_loggers = config.get("enable_loggers", [])
+    verbose = config.get("verbose", 3)
+    log_opts = config.get("logging") or {}
+
+    enable_loggers = log_opts.get("enable_loggers", [])
     if enable_loggers is None:
         enable_loggers = []
 
-    logger_date_format = config.get("logger_date_format", "%Y-%m-%d %H:%M:%S")
-    logger_format = config.get(
-        "logger_format",
-        "%(asctime)s.%(msecs)03d - <%(thread)d> %(name)-27s %(levelname)-8s:  %(message)s",
-    )
+    logger_date_format = log_opts.get("logger_date_format", DEFAULT_LOGGER_DATE_FORMAT)
+    logger_format = log_opts.get("logger_format", DEFAULT_LOGGER_FORMAT)
+    # Verbose format by default (but wsgidav.util.DEFAULT_CONFIG defines a short format)
+    # logger_date_format = log_opts.get("logger_date_format", "%Y-%m-%d %H:%M:%S")
+    # logger_format = log_opts.get(
+    #     "logger_format",
+    #     "%(asctime)s.%(msecs)03d - <%(thread)d> %(name)-27s %(levelname)-8s:  %(message)s",
+    # )
 
     formatter = logging.Formatter(logger_format, logger_date_format)
 
@@ -239,9 +297,10 @@ def init_logging(config):
                 e = BASE_LOGGER_NAME + "." + e
             lg = logging.getLogger(e.strip())
             lg.setLevel(logging.DEBUG)
+    return
 
 
-def get_module_logger(moduleName, defaultToVerbose=False):
+def get_module_logger(moduleName, *, default_to_verbose=False):
     """Create a module logger, that can be en/disabled by configuration.
 
     @see: unit.init_logging
@@ -250,14 +309,14 @@ def get_module_logger(moduleName, defaultToVerbose=False):
     if not moduleName.startswith(BASE_LOGGER_NAME + "."):
         moduleName = BASE_LOGGER_NAME + "." + moduleName
     logger = logging.getLogger(moduleName)
-    # if logger.level == logging.NOTSET and not defaultToVerbose:
+    # if logger.level == logging.NOTSET and not default_to_verbose:
     #     logger.setLevel(logging.INFO)  # Disable debug messages by default
     return logger
 
 
 def deep_update(d, u):
     for k, v in u.items():
-        if isinstance(v, compat.collections_abc.Mapping):
+        if isinstance(v, collections.abc.Mapping):
             d[k] = deep_update(d.get(k, {}), v)
         else:
             d[k] = v
@@ -283,12 +342,12 @@ def dynamic_import_class(name):
     return the_class
 
 
-def dynamic_instantiate_middleware(name, args, expand=None):
+def dynamic_instantiate_middleware(name, options, *, expand=None):
     """Import a class and instantiate with custom args.
 
-    Example:
+    Examples:
         name = "my.module.Foo"
-        args_dict = {
+        options = {
             "bar": 42,
             "baz": "qux"
             }
@@ -299,24 +358,32 @@ def dynamic_instantiate_middleware(name, args, expand=None):
 
     def _expand(v):
         """Replace some string templates with defined values."""
-        if expand and compat.is_basestring(v) and v.lower() in expand:
+        if expand and is_basestring(v) and v.lower() in expand:
             return expand[v]
         return v
 
     try:
         the_class = dynamic_import_class(name)
         inst = None
-        if type(args) in (tuple, list):
-            args = tuple(map(_expand, args))
-            inst = the_class(*args)
+        pos_args = []
+        kwargs = {}
+        if type(options) in (tuple, list):
+            pos_args = tuple(map(_expand, options))
+        elif type(options) is dict:
+            kwargs = {k: _expand(v) for k, v in options.items()}
         else:
-            assert type(args) is dict
-            args = {k: _expand(v) for k, v in args.items()}
-            inst = the_class(**args)
+            raise ValueError(f"Unexpected options format: {options}")
 
-        _logger.debug("Instantiate {}({}) => {}".format(name, args, inst))
+        inst = the_class(*pos_args, **kwargs)
+
+        disp_args = [f"{o}" for o in pos_args] + [
+            f"{k}={v!r}" for k, v in kwargs.items()
+        ]
+        _logger.debug(
+            "Instantiate {}({}) => {}".format(name, ", ".join(disp_args), inst)
+        )
     except Exception:
-        _logger.exception("ERROR: Instantiate {}({}) => {}".format(name, args, inst))
+        _logger.exception("ERROR: Instantiate {}({}) => {}".format(name, options, inst))
 
     return inst
 
@@ -326,8 +393,9 @@ def dynamic_instantiate_middleware(name, args, expand=None):
 # ========================================================================
 
 
-def lstripstr(s, prefix, ignoreCase=False):
-    if ignoreCase:
+def removeprefix(s: str, prefix: str, ignore_case: bool = False) -> str:
+    """Replacement for str.removeprefix() (Py3.9+) with ignore_case option."""
+    if ignore_case:
         if not s.lower().startswith(prefix.lower()):
             return s
     else:
@@ -368,7 +436,7 @@ def shift_path(script_name, path_info):
     return (segment, join_uri(script_name.rstrip("/"), segment), rest.rstrip("/"))
 
 
-def split_namespace(clarkName):
+def split_namespace(clark_name):
     """Return (namespace, localname) tuple for a property name in Clark Notation.
 
     Namespace defaults to ''.
@@ -376,25 +444,25 @@ def split_namespace(clarkName):
     '{DAV:}foo'  -> ('DAV:', 'foo')
     'bar'  -> ('', 'bar')
     """
-    if clarkName.startswith("{") and "}" in clarkName:
-        ns, localname = clarkName.split("}", 1)
+    if clark_name.startswith("{") and "}" in clark_name:
+        ns, localname = clark_name.split("}", 1)
         return (ns[1:], localname)
-    return ("", clarkName)
+    return ("", clark_name)
 
 
 def to_unicode_safe(s):
     """Convert a binary string to Unicode using UTF-8 (fallback to ISO-8859-1)."""
     try:
-        u = compat.to_unicode(s, "utf8")
+        u = to_str(s, "utf8")
     except ValueError:
         _logger.error(
             "to_unicode_safe({!r}) *** UTF-8 failed. Trying ISO-8859-1".format(s)
         )
-        u = compat.to_unicode(s, "ISO-8859-1")
+        u = to_str(s, "ISO-8859-1")
     return u
 
 
-def safe_re_encode(s, encoding_to, errors="backslashreplace"):
+def safe_re_encode(s, encoding_to, *, errors="backslashreplace"):
     """Re-encode str or binary so that is compatible with a given encoding (replacing
     unsupported chars).
 
@@ -405,7 +473,7 @@ def safe_re_encode(s, encoding_to, errors="backslashreplace"):
     # prev = s
     if not encoding_to:
         encoding_to = "ASCII"
-    if compat.is_bytes(s):
+    if is_bytes(s):
         s = s.decode(encoding_to, errors=errors).encode(encoding_to)
     else:
         s = s.encode(encoding_to, errors=errors).decode(encoding_to)
@@ -415,7 +483,7 @@ def safe_re_encode(s, encoding_to, errors="backslashreplace"):
 
 def string_repr(s):
     """Return a string as hex dump."""
-    if compat.is_bytes(s):
+    if is_bytes(s):
         res = "{!r}: ".format(s)
         for b in s:
             if type(b) is str:  # Py2
@@ -431,7 +499,7 @@ def get_file_extension(path):
 
 
 def byte_number_string(
-    number, thousandsSep=True, partition=False, base1024=True, appendBytes=True
+    number, *, thousands_sep=True, partition=False, base1024=True, append_bytes=True
 ):
     """Convert bytes into human-readable representation."""
     magsuffix = ""
@@ -452,13 +520,13 @@ def byte_number_string(
         # http://en.wikipedia.org/wiki/Kibi-#IEC_standard_prefixes
         magsuffix = ["", "K", "M", "G", "T", "P"][magnitude]
 
-    if appendBytes:
+    if append_bytes:
         if number == 1:
             bytesuffix = " Byte"
         else:
             bytesuffix = " Bytes"
 
-    if thousandsSep and (number >= 1000 or magsuffix):
+    if thousands_sep and (number >= 1000 or magsuffix):
         # locale.setlocale(locale.LC_ALL, "")
         # # TODO: make precision configurable
         # snum = locale.format("%d", number, thousandsSep)
@@ -570,12 +638,17 @@ def read_and_discard_input(environ):
             _logger.error("--> wsgi_input.read(): {}".format(sys.exc_info()))
 
 
-def fail(value, context_info=None, src_exception=None, err_condition=None):
+def fail(value, context_info=None, *, src_exception=None, err_condition=None):
     """Wrapper to raise (and log) DAVError."""
     if isinstance(value, Exception):
         e = as_DAVError(value)
     else:
-        e = DAVError(value, context_info, src_exception, err_condition)
+        e = DAVError(
+            value,
+            context_info,
+            src_exception=src_exception,
+            err_condition=err_condition,
+        )
     _logger.debug("Raising DAVError {}".format(e.get_user_info()))
     raise e
 
@@ -583,7 +656,7 @@ def fail(value, context_info=None, src_exception=None, err_condition=None):
 # ========================================================================
 # SubAppStartResponse
 # ========================================================================
-class SubAppStartResponse(object):
+class SubAppStartResponse:
     def __init__(self):
         self.__status = ""
         self.__response_headers = []
@@ -625,12 +698,12 @@ def join_uri(uri, *segments):
     return uri.rstrip("/") + "/" + sub
 
 
-def get_uri_name(uri):
+def get_uri_name(uri: str) -> str:
     """Return local name, i.e. last segment of URI."""
     return uri.strip("/").split("/")[-1]
 
 
-def get_uri_parent(uri):
+def get_uri_parent(uri: str) -> Optional[str]:
     """Return URI of parent collection with trailing '/', or None, if URI is top-level.
 
     This function simply strips the last segment. It does not test, if the
@@ -641,34 +714,34 @@ def get_uri_parent(uri):
     return uri.rstrip("/").rsplit("/", 1)[0] + "/"
 
 
-def is_child_uri(parentUri, childUri):
-    """Return True, if childUri is a child of parentUri.
+def is_child_uri(parent_uri: str, child_uri: str) -> bool:
+    """Return True, if child_uri is a child of parent_uri.
 
     This function accounts for the fact that '/a/b/c' and 'a/b/c/' are
     children of '/a/b' (and also of '/a/b/').
     Note that '/a/b/cd' is NOT a child of 'a/b/c'.
     """
     return (
-        parentUri
-        and childUri
-        and childUri.rstrip("/").startswith(parentUri.rstrip("/") + "/")
+        bool(parent_uri)
+        and bool(child_uri)
+        and child_uri.rstrip("/").startswith(parent_uri.rstrip("/") + "/")
     )
 
 
-def is_equal_or_child_uri(parentUri, childUri):
-    """Return True, if childUri is a child of parentUri or maps to the same resource.
+def is_equal_or_child_uri(parent_uri, child_uri):
+    """Return True, if child_uri is a child of parent_uri or maps to the same resource.
 
     Similar to <util.is_child_uri>_ ,  but this method also returns True, if parent
     equals child. ('/a/b' is considered identical with '/a/b/').
     """
     return (
-        parentUri
-        and childUri
-        and (childUri.rstrip("/") + "/").startswith(parentUri.rstrip("/") + "/")
+        parent_uri
+        and child_uri
+        and (child_uri.rstrip("/") + "/").startswith(parent_uri.rstrip("/") + "/")
     )
 
 
-def make_complete_url(environ, localUri=None):
+def make_complete_url(environ, local_uri=None):
     """URL reconstruction according to PEP 333.
     @see https://www.python.org/dev/peps/pep-3333/#url-reconstruction
     """
@@ -686,14 +759,14 @@ def make_complete_url(environ, localUri=None):
             if environ["SERVER_PORT"] != "80":
                 url += ":" + environ["SERVER_PORT"]
 
-    url += compat.quote(environ.get("SCRIPT_NAME", ""))
+    url += quote(environ.get("SCRIPT_NAME", ""))
 
-    if localUri is None:
-        url += compat.quote(environ.get("PATH_INFO", ""))
+    if local_uri is None:
+        url += quote(environ.get("PATH_INFO", ""))
         if environ.get("QUERY_STRING"):
             url += "?" + environ["QUERY_STRING"]
     else:
-        url += localUri  # TODO: quote?
+        url += local_uri  # TODO: quote?
     return url
 
 
@@ -702,7 +775,7 @@ def make_complete_url(environ, localUri=None):
 # ========================================================================
 
 
-def parse_xml_body(environ, allow_empty=False):
+def parse_xml_body(environ, *, allow_empty=False):
     """Read request body XML into an etree.Element.
 
     Return None, if no request body was sent.
@@ -779,7 +852,7 @@ def parse_xml_body(environ, allow_empty=False):
         _logger.info(
             "{} XML request body:\n{}".format(
                 environ["REQUEST_METHOD"],
-                compat.to_native(xml_to_bytes(rootEL, pretty_print=True)),
+                to_str(xml_to_bytes(rootEL, pretty=True)),
             )
         )
         environ["wsgidav.dump_request_body"] = False
@@ -798,7 +871,9 @@ def parse_xml_body(environ, allow_empty=False):
 #    return [ body ]
 
 
-def send_status_response(environ, start_response, e, add_headers=None, is_head=False):
+def send_status_response(
+    environ, start_response, e, *, add_headers=None, is_head=False
+):
     """Start a WSGI response for a DAVError or status code."""
     status = get_http_status_string(e)
     headers = []
@@ -822,9 +897,9 @@ def send_status_response(environ, start_response, e, add_headers=None, is_head=F
 
     content_type, body = e.get_response_page()
     if is_head:
-        body = compat.b_empty
+        body = b""
 
-    assert compat.is_bytes(body), body  # If not, Content-Length is wrong!
+    assert is_bytes(body), body  # If not, Content-Length is wrong!
     start_response(
         status,
         [
@@ -837,22 +912,22 @@ def send_status_response(environ, start_response, e, add_headers=None, is_head=F
     return [body]
 
 
-def send_multi_status_response(environ, start_response, multistatusEL):
+def send_multi_status_response(environ, start_response, multistatus_elem):
     # If logging of the body is desired, then this is the place to do it
     # pretty:
     if environ.get("wsgidav.dump_response_body"):
         xml = "{} XML response body:\n{}".format(
             environ["REQUEST_METHOD"],
-            compat.to_native(xml_to_bytes(multistatusEL, pretty_print=True)),
+            to_str(xml_to_bytes(multistatus_elem, pretty=True)),
         )
         environ["wsgidav.dump_response_body"] = xml
 
     # Hotfix for Windows XP
     # PROPFIND XML response is not recognized, when pretty_print = True!
     # (Vista and others would accept this).
-    xml_data = xml_to_bytes(multistatusEL, pretty_print=False)
+    xml_data = xml_to_bytes(multistatus_elem, pretty=False)
     # If not, Content-Length is wrong!
-    assert compat.is_bytes(xml_data), xml_data
+    assert is_bytes(xml_data), xml_data
 
     headers = [
         ("Content-Type", "application/xml"),
@@ -869,7 +944,7 @@ def send_multi_status_response(environ, start_response, multistatusEL):
     return [xml_data]
 
 
-def add_property_response(multistatusEL, href, propList):
+def add_property_response(multistatus_elem, href, prop_list):
     """Append <response> element to <multistatus> element.
 
     <prop> node depends on the value type:
@@ -878,17 +953,17 @@ def add_property_response(multistatusEL, href, propList):
       - etree.Element: add XML element as child
       - DAVError: add an empty element to an own <propstatus> for this status code
 
-    @param multistatusEL: etree.Element
+    @param multistatus_elem: etree.Element
     @param href: global URL of the resource, e.g. 'http://server:port/path'.
-    @param propList: list of 2-tuples (name, value)
+    @param prop_list: list of 2-tuples (name, value)
     """
-    # Split propList by status code and build a unique list of namespaces
+    # Split prop_list by status code and build a unique list of namespaces
     nsCount = 1
     nsDict = {}
     nsMap = {}
     propDict = {}
 
-    for name, value in propList:
+    for name, value in prop_list:
         status = "200 OK"
         if isinstance(value, DAVError):
             status = get_http_status_string(value)
@@ -906,12 +981,12 @@ def add_property_response(multistatusEL, href, propList):
         propDict.setdefault(status, []).append((name, value))
 
     # <response>
-    responseEL = make_sub_element(multistatusEL, "{DAV:}response", nsmap=nsMap)
+    responseEL = make_sub_element(multistatus_elem, "{DAV:}response", nsmap=nsMap)
 
     #    log("href value:{}".format(string_repr(href)))
     #    etree.SubElement(responseEL, "{DAV:}href").text = toUnicode(href)
     etree.SubElement(responseEL, "{DAV:}href").text = href
-    #    etree.SubElement(responseEL, "{DAV:}href").text = compat.quote(href, safe="/" + "!*'(),"
+    #    etree.SubElement(responseEL, "{DAV:}href").text = quote(href, safe="/" + "!*'(),"
     #       + "$-_|.")
 
     # One <propstat> per status code
@@ -940,19 +1015,58 @@ def add_property_response(multistatusEL, href, propList):
 
 def calc_hexdigest(s):
     """Return md5 digest for a string."""
-    s = compat.to_bytes(s)
+    s = to_bytes(s)
     return md5(s).hexdigest()  # return native string
 
 
 def calc_base64(s):
     """Return base64 encoded binarystring."""
-    s = compat.to_bytes(s)
-    s = compat.base64_encodebytes(s).strip()  # return bytestring
-    return compat.to_native(s)
+    s = to_bytes(s)
+    s = base64.encodebytes(s).strip()  # return bytestring
+    return to_str(s)
 
 
-def get_etag(file_path):
-    """Return a strong Entity Tag for a (file)path.
+def checked_etag(etag, *, allow_none=False):
+    """Validate etag string to ensure propare comparison.
+
+    This function is used to assert that `DAVResource.get_etag()` does not add
+    quotes, so it can be passed as `ETag: "<etag_value>"` header.
+    Note that we also reject weak entity tags (W/"<etag_value>"), since WebDAV
+    servers commonly use strong ETags.
+    """
+    if etag is None and allow_none:
+        return None
+    etag = etag.strip()
+    if not etag or '"' in etag or etag.startswith("W/"):
+        # This is an internal server error
+        raise ValueError(f"Invalid ETag format: '{etag!r}'.")
+    return etag
+
+
+def parse_if_match_header(value):
+    """Return a list of etag-values for a `If-Match` or `If-Not-Match` header.
+
+    Remove enclosing quotes for easy comparison with the `DAVResource.get_etag()`
+    results.
+    We strip the weak-ETag prefix, because WebDAV servers commonly use strong
+    ETags. If the client sends a weak tag, it should not hurt to compare
+    against the resources strong etag however(?).
+    """
+    res = []
+    for etag in value.split(","):
+        etag = removeprefix(etag.strip(), "W/")
+        if etag.startswith('"') and etag.endswith('"'):
+            etag = etag[1:-1]
+        if etag:
+            res.append(etag)
+        elif '"' in etag:
+            # Client error
+            raise DAVError(HTTP_BAD_REQUEST, f"Invalid ETag format: '{value!r}'.")
+    return res
+
+
+def get_file_etag(file_path):
+    """Return a strong, unquoted Entity Tag for a (file)path.
 
     http://www.webdav.org/specs/rfc4918.html#etag
 
@@ -965,33 +1079,29 @@ def get_etag(file_path):
     # (At least on Vista) os.path.exists returns False, if a file name contains
     # special characters, even if it is correctly UTF-8 encoded.
     # So we convert to unicode. On the other hand, md5() needs a byte string.
-    if compat.is_bytes(file_path):
-        unicodeFilePath = to_unicode_safe(file_path)
+    if is_bytes(file_path):
+        unicode_file_path = to_unicode_safe(file_path)
     else:
-        unicodeFilePath = file_path
+        unicode_file_path = file_path
         file_path = file_path.encode("utf8", "surrogateescape")
 
-    if not os.path.isfile(unicodeFilePath):
+    if not os.path.isfile(unicode_file_path):
         return md5(file_path).hexdigest()
 
+    fstat = os.stat(unicode_file_path)
     if sys.platform == "win32":
-        statresults = os.stat(unicodeFilePath)
-        return (
-            md5(file_path).hexdigest()
-            + "-"
-            + str(statresults[stat.ST_MTIME])
-            + "-"
-            + str(statresults[stat.ST_SIZE])
+        etag = "{}-{}-{}".format(
+            md5(file_path).hexdigest(),
+            fstat[stat.ST_MTIME],
+            fstat[stat.ST_SIZE],
         )
     else:
-        statresults = os.stat(unicodeFilePath)
-        return (
-            str(statresults[stat.ST_INO])
-            + "-"
-            + str(statresults[stat.ST_MTIME])
-            + "-"
-            + str(statresults[stat.ST_SIZE])
+        etag = "{}-{}-{}".format(
+            fstat[stat.ST_INO],
+            fstat[stat.ST_MTIME],
+            fstat[stat.ST_SIZE],
         )
+    return etag
 
 
 # ========================================================================
@@ -1133,11 +1243,13 @@ def evaluate_http_conditionals(dav_res, last_modified, entitytag, environ):
     # is consistent with all of the conditional header fields in the request.
 
     if "HTTP_IF_MATCH" in environ and dav_res.support_etag():
-        ifmatchlist = environ["HTTP_IF_MATCH"].split(",")
-        for ifmatchtag in ifmatchlist:
-            ifmatchtag = ifmatchtag.strip(' "\t')
-            if ifmatchtag == entitytag or ifmatchtag == "*":
+        token_list = parse_if_match_header(environ["HTTP_IF_MATCH"])
+        match = False
+        for token in token_list:
+            if token == entitytag or token == "*":
+                match = True
                 break
+        if not match:
             raise DAVError(HTTP_PRECONDITION_FAILED, "If-Match header condition failed")
 
     # TODO: after the refactoring
@@ -1154,10 +1266,9 @@ def evaluate_http_conditionals(dav_res, last_modified, entitytag, environ):
     # a 304 (Not Modified) response.
     ignoreIfModifiedSince = False
     if "HTTP_IF_NONE_MATCH" in environ and dav_res.support_etag():
-        ifmatchlist = environ["HTTP_IF_NONE_MATCH"].split(",")
-        for ifmatchtag in ifmatchlist:
-            ifmatchtag = ifmatchtag.strip(' "\t')
-            if ifmatchtag == entitytag or ifmatchtag == "*":
+        token_list = parse_if_match_header(environ["HTTP_IF_NONE_MATCH"])
+        for token in token_list:
+            if token == entitytag or token == "*":
                 # ETag matched. If it's a GET request and we don't have an
                 # conflicting If-Modified header, we return NOT_MODIFIED
                 if (
@@ -1280,7 +1391,7 @@ def test_if_header_dict(dav_res, dictIf, fullurl, locktokenlist, entitytag):
     return False
 
 
-test_if_header_dict.__test__ = False  # Tell nose to ignore this function
+# test_if_header_dict.__test__ = False  # Tell nose to ignore this function
 
 
 # ========================================================================

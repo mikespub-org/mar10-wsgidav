@@ -8,7 +8,7 @@ import time
 
 import redis
 
-from wsgidav import compat, util
+from wsgidav import util
 from wsgidav.lock_manager import (
     generate_lock_token,
     lock_string,
@@ -19,12 +19,12 @@ from wsgidav.lock_manager import (
 _logger = util.get_module_logger(__name__)
 
 
-class LockStorageRedis(object):
+class LockStorageRedis:
     """
     A (high performance?) lock manager implementation using redis!
     """
 
-    def __init__(self, host="127.0.0.1", port=6379, db=0, password=None):
+    def __init__(self, *, host="127.0.0.1", port=6379, db=0, password=None):
         super(LockStorageRedis, self).__init__()
         self._redis_host = host
         self._redis_port = port
@@ -41,8 +41,8 @@ class LockStorageRedis(object):
     def __repr__(self):
         return self.__class__.__name__
 
-    def __del__(self):
-        pass
+    # def __del__(self):
+    #     pass
 
     def _flush(self):
         """Overloaded by Shelve implementation."""
@@ -151,7 +151,7 @@ class LockStorageRedis(object):
         )
         return lock
 
-    def refresh(self, token, timeout):
+    def refresh(self, token, *, timeout):
         """Modify an existing lock's timeout.
         token:
             Valid lock token.
@@ -194,7 +194,7 @@ class LockStorageRedis(object):
         self._flush()
         return True
 
-    def get_lock_list(self, path, include_root, include_children, token_only):
+    def get_lock_list(self, path, *, include_root, include_children, token_only):
         """Return a list of direct locks for <path>.
         Expired locks are *not* returned (but may be purged).
         path:
@@ -210,7 +210,7 @@ class LockStorageRedis(object):
         Returns:
             List of valid lock dictionaries (may be empty).
         """
-        assert compat.is_native(path)
+        assert util.is_str(path)
         assert path and path.startswith("/")
         assert include_root or include_children
 

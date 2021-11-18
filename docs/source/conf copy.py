@@ -19,6 +19,8 @@
 # Disable Black formatting
 # fmt: off
 
+# type: ignore
+
 import sys
 import os
 
@@ -31,9 +33,6 @@ on_rtd = os.environ.get('READTHEDOCS', None) == 'True'
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 package_root = os.path.abspath('../..')
 sys.path.insert(0, package_root)
-print "Add package root to sys.path: %r" % package_root
-# for fn in os.listdir(package_root):
-#   print "-", fn
 
 # -- General configuration ------------------------------------------------
 
@@ -54,6 +53,7 @@ extensions = [
     'sphinx.ext.inheritance_diagram',
     'sphinx.ext.napoleon',
     # 'sphinx_automodapi.automodapi',
+    'sphinx_search.extension',
 ]
 
 # Included at the beginning of every file:
@@ -105,14 +105,21 @@ copyright = u'2009-2021 Martin Wendt, 2005 Ho Chun Wei'
 # The full version, including alpha/beta/rc tags.
 #release = '1.0'
 import pkg_resources
+
 try:
     release = pkg_resources.get_distribution('wsgidav').version
 except pkg_resources.DistributionNotFound:
-    print 'To build the documentation, The distribution information'
-    print 'Has to be available.  Either install the package into your'
-    print 'development environment or run "setup.py develop" to setup the'
-    print 'metadata.  A virtualenv is recommended!'
+    print('To build the documentation, The distribution information')
+    print('has to be available. Either install the package into your')
+    print('development environment or run "setup.py develop" to setup the')
+    print('metadata. A virtualenv is recommended!')
+
+    print(f"sys.path: {sys.path}")
+    print(f"package_root: {package_root}")
+    for fn in os.listdir(package_root):
+        print("-", fn)
     sys.exit(1)
+
 del pkg_resources
 
 version = '.'.join(release.split('.')[:2])
@@ -129,7 +136,7 @@ version = '.'.join(release.split('.')[:2])
 
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
-exclude_patterns = ['_build']
+exclude_patterns = ['_build', 'build']
 
 # The reST default role (used for this markup: `text`) to use for all
 # documents.

@@ -9,24 +9,25 @@ Example:
     with WsgiDavTestServer(opts):
         ... test methods
 """
-from __future__ import print_function
-
 import multiprocessing
 import os
+import shutil
 import sys
 import time
 from tempfile import gettempdir
 
-from wsgidav import compat, util
+from wsgidav import util
 from wsgidav.fs_dav_provider import FilesystemProvider
 from wsgidav.wsgidav_app import WsgiDAVApp
+
+FIXTURE_PATH = os.path.join(os.path.dirname(__file__), "fixtures")
 
 # ========================================================================
 # Timing
 # ========================================================================
 
 
-class Timing(object):
+class Timing:
     """Print timing"""
 
     def __init__(self, name, count=None, fmt=None, count2=None, fmt2=None, stream=None):
@@ -61,7 +62,16 @@ class Timing(object):
 def write_test_file(name, size):
     path = os.path.join(gettempdir(), name)
     with open(path, "wb") as f:
-        f.write(compat.to_bytes("*") * size)
+        f.write(b"*" * size)
+    return path
+
+
+def create_test_folder(name):
+    path = os.path.join(gettempdir(), name)
+    # copytree fails if dir exists. Since Py3.8 we could add `dirs_exist_ok=True`
+    # but this would break tests on 3.6/3.7.
+    shutil.rmtree(util.to_str(path), ignore_errors=True)
+    shutil.copytree(os.path.join(FIXTURE_PATH, "share"), path)
     return path
 
 
@@ -92,7 +102,10 @@ def run_wsgidav_server(with_auth, with_ssl, provider=None, **kwargs):
         "http_authenticator": {"domain_controller": None},
         "simple_dc": {"user_mapping": {"*": True}},  # anonymous access
         "verbose": 1,
-        "enable_loggers": [],
+        "logging": {
+            "enable_loggers": [],
+            # "debug_methods": [],
+        },
         "property_manager": True,  # None: no property manager
         "lock_manager": True,  # True: use lock_manager.LockManager
     }
@@ -157,7 +170,7 @@ def run_wsgidav_server(with_auth, with_ssl, provider=None, **kwargs):
 # ========================================================================
 
 
-class WsgiDavTestServer(object):
+class WsgiDavTestServer:
     """Run wsgidav in a separate process."""
 
     def __init__(

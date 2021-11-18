@@ -80,8 +80,12 @@ import os
 import sys
 import time
 import traceback
+from abc import ABC, abstractmethod
+from datetime import datetime
+from typing import Optional
+from urllib.parse import quote, unquote
 
-from wsgidav import compat, util, xml_tools
+from wsgidav import util, xml_tools
 from wsgidav.dav_error import (
     HTTP_FORBIDDEN,
     HTTP_NOT_FOUND,
@@ -114,7 +118,7 @@ _lockPropertyNames = ["{DAV:}lockdiscovery", "{DAV:}supportedlock"]
 # ========================================================================
 
 
-class _DAVResource(object):
+class _DAVResource(ABC):
     r"""Represents a single existing DAV resource instance.
 
     A resource may be a collection (aka 'folder') or a non-collection (aka
@@ -162,8 +166,8 @@ class _DAVResource(object):
     See also DAVProvider.get_resource_inst().
     """
 
-    def __init__(self, path, is_collection, environ):
-        assert compat.is_native(path)
+    def __init__(self, path: str, is_collection: bool, environ: dict):
+        assert util.is_str(path)
         assert path == "" or path.startswith("/")
         self.provider = environ["wsgidav.provider"]
         self.path = path
@@ -172,7 +176,7 @@ class _DAVResource(object):
         self.name = util.get_uri_name(self.path)
 
     def __repr__(self):
-        return "{}({!r})".format(self.__class__.__name__, self.path)
+        return f"{self.__class__.__name__}({self.path!r})"
 
     #    def getContentLanguage(self):
     #        """Contains the Content-Language header returned by a GET without accept
@@ -183,7 +187,7 @@ class _DAVResource(object):
     #        """
     #        raise NotImplementedError
 
-    def get_content_length(self):
+    def get_content_length(self) -> Optional[int]:
         """Contains the Content-Length header returned by a GET without accept
         headers.
 
@@ -196,7 +200,7 @@ class _DAVResource(object):
             return None
         raise NotImplementedError
 
-    def get_content_type(self):
+    def get_content_type(self) -> Optional[str]:
         """Contains the Content-Type header returned by a GET without accept
         headers.
 
@@ -210,7 +214,7 @@ class _DAVResource(object):
             return None
         raise NotImplementedError
 
-    def get_creation_date(self):
+    def get_creation_date(self) -> Optional[datetime]:
         """Records the time and date the resource was created.
 
         The creationdate property should be defined on all DAV compliant
@@ -233,7 +237,7 @@ class _DAVResource(object):
         assert self.is_collection
         return None
 
-    def get_display_name(self):
+    def get_display_name(self) -> str:
         """Provides a name for the resource that is suitable for presentation to
         a user.
 
@@ -287,7 +291,7 @@ class _DAVResource(object):
         """
         return None
 
-    def set_last_modified(self, dest_path, time_stamp, dry_run):
+    def set_last_modified(self, dest_path, time_stamp, *, dry_run):
         """Set last modified time for destPath to timeStamp on epoch-format"""
         raise NotImplementedError
 
@@ -306,11 +310,10 @@ class _DAVResource(object):
         return self.get_content_length() is not None
 
     def support_etag(self):
-        """Return True, if this resource supports ETags.
-
-        This default implementation checks `self.get_etag() is None`.
-        """
-        return self.get_etag() is not None
+        """Return True, if this resource supports ETags."""
+        raise NotImplementedError
+        # This default implementation checks `self.get_etag() is None`.
+        # return self.get_etag() is not None
 
     def support_modified(self):
         """Return True, if this resource supports last modified dates.
@@ -360,7 +363,7 @@ class _DAVResource(object):
 
         See also comments in DEVELOPERS.txt glossary.
         """
-        return compat.quote(self.provider.share_path + self.get_preferred_path())
+        return quote(self.provider.share_path + self.get_preferred_path())
 
     #    def getRefKey(self):
     #        """Return an unambigous identifier string for a resource.
@@ -388,7 +391,7 @@ class _DAVResource(object):
         # Nautilus chokes, if href encodes '(' as '%28'
         # So we don't encode 'extra' and 'safe' characters (see rfc2068 3.2.1)
         safe = "/" + "!*'()," + "$-_|."
-        return compat.quote(
+        return quote(
             self.provider.mount_path
             + self.provider.share_path
             + self.get_preferred_path(),
@@ -404,6 +407,15 @@ class _DAVResource(object):
     #        if not parentpath:
     #            return None
     #        return self.provider.get_resource_inst(parentpath)
+
+    def get_member(self, name):
+        """Return child resource with a given name (None, if not found).
+
+        This method COULD be overridden by a derived class, for performance
+        reasons.
+        This default implementation calls self.provider.get_resource_inst().
+        """
+        raise NotImplementedError  # implemented by DAVCollecion
 
     def get_member_list(self):
         """Return a list of direct members (_DAVResource or derived objects).
@@ -430,6 +442,7 @@ class _DAVResource(object):
 
     def get_descendants(
         self,
+        *,
         collections=True,
         resources=True,
         depth_first=False,
@@ -468,7 +481,11 @@ class _DAVResource(object):
                 if child.is_collection and depth == "infinity":
                     res.extend(
                         child.get_descendants(
-                            collections, resources, depth_first, depth, add_self=False
+                            collections=collections,
+                            resources=resources,
+                            depth_first=depth_first,
+                            depth=depth,
+                            add_self=False,
                         )
                     )
                 if want and depth_first:
@@ -479,7 +496,7 @@ class _DAVResource(object):
 
     # --- Properties ---------------------------------------------------------
 
-    def get_property_names(self, is_allprop):
+    def get_property_names(self, *, is_allprop):
         """Return list of supported property names in Clark Notation.
 
         Note that 'allprop', despite its name, which remains for
@@ -530,7 +547,7 @@ class _DAVResource(object):
 
         return propNameList
 
-    def get_properties(self, mode, name_list=None):
+    def get_properties(self, mode, *, name_list=None):
         """Return properties as list of 2-tuples (name, value).
 
         If mode is 'name', then None is returned for the value.
@@ -556,7 +573,7 @@ class _DAVResource(object):
             # TODO: 'allprop' could have nameList, when <include> option is
             # implemented
             assert name_list is None
-            name_list = self.get_property_names(mode == "allprop")
+            name_list = self.get_property_names(is_allprop=mode == "allprop")
         else:
             assert name_list is not None
 
@@ -714,7 +731,7 @@ class _DAVResource(object):
         # No persistence available, or property not found
         raise DAVError(HTTP_NOT_FOUND)
 
-    def set_property_value(self, name, value, dry_run=False):
+    def set_property_value(self, name, value, *, dry_run=False):
         """Set a property value or remove a property.
 
         value == None means 'remove property'.
@@ -805,7 +822,7 @@ class _DAVResource(object):
 
         raise DAVError(HTTP_FORBIDDEN)
 
-    def remove_all_properties(self, recursive):
+    def remove_all_properties(self, *, recursive):
         """Remove all associated dead properties."""
         if self.provider.prop_manager:
             self.provider.prop_manager.remove_properties(
@@ -829,7 +846,7 @@ class _DAVResource(object):
             return False
         return self.provider.lock_manager.is_url_locked(self.get_ref_url())
 
-    def remove_all_locks(self, recursive):
+    def remove_all_locks(self, *, recursive):
         if self.provider.lock_manager:
             self.provider.lock_manager.remove_all_locks_from_url(self.get_ref_url())
 
@@ -883,7 +900,7 @@ class _DAVResource(object):
         assert not self.is_collection
         raise NotImplementedError
 
-    def begin_write(self, content_type=None):
+    def begin_write(self, *, content_type=None):
         """Open content as a stream for writing.
 
         This method MUST be implemented by all providers that support write
@@ -892,7 +909,7 @@ class _DAVResource(object):
         assert not self.is_collection
         raise DAVError(HTTP_FORBIDDEN)
 
-    def end_write(self, with_errors):
+    def end_write(self, *, with_errors):
         """Called when PUT has finished writing.
 
         This is only a notification. that MAY be handled.
@@ -977,7 +994,7 @@ class _DAVResource(object):
         """
         raise NotImplementedError
 
-    def handle_copy(self, dest_path, depth_infinity):
+    def handle_copy(self, dest_path, *, depth_infinity):
         """Handle a COPY request natively.
 
         This method is called by the COPY handler after checking for valid
@@ -1014,7 +1031,7 @@ class _DAVResource(object):
         """
         return False
 
-    def copy_move_single(self, dest_path, is_move):
+    def copy_move_single(self, dest_path, *, is_move):
         """Copy or move this resource to destPath (non-recursive).
 
         Preconditions (ensured by caller):
@@ -1171,9 +1188,10 @@ class DAVNonCollection(_DAVResource):
     See also _DAVResource
     """
 
-    def __init__(self, path, environ):
+    def __init__(self, path: str, environ: dict):
         _DAVResource.__init__(self, path, False, environ)
 
+    @abstractmethod
     def get_content_length(self):
         """Returns the byte length of the content.
 
@@ -1190,9 +1208,12 @@ class DAVNonCollection(_DAVResource):
         This getcontenttype property MUST be defined on any DAV compliant
         resource that returns the Content-Type header in response to a GET.
         See http://www.webdav.org/specs/rfc4918.html#PROPERTY_getcontenttype
-        """
-        raise NotImplementedError
 
+        This default implementation guesses the type from the filen name.
+        """
+        return util.guess_mime_type(self.path)
+
+    @abstractmethod
     def get_content(self):
         """Open content as a stream for reading.
 
@@ -1204,6 +1225,23 @@ class DAVNonCollection(_DAVResource):
         """
         raise NotImplementedError
 
+    @abstractmethod
+    def get_etag(self):
+        """
+        See http://www.webdav.org/specs/rfc4918.html#PROPERTY_getetag
+
+        This method SHOULD be implemented, especially by non-collections.
+        Return None if not supported for this resource instance.
+        See also `DAVNonCollection.support_etag()` and `util.get_file_etag(path)`.
+        """
+
+    @abstractmethod
+    def support_etag(self):
+        """Return True, if this resource supports ETags.
+
+        See also `DAVNonCollection.get_etag()`.
+        """
+
     def support_ranges(self):
         """Return True, if this non-resource supports Range on GET requests.
 
@@ -1211,7 +1249,7 @@ class DAVNonCollection(_DAVResource):
         """
         return False
 
-    def begin_write(self, content_type=None):
+    def begin_write(self, *, content_type=None):
         """Open content as a stream for writing.
 
         This method MUST be implemented by all providers that support write
@@ -1219,7 +1257,7 @@ class DAVNonCollection(_DAVResource):
         """
         raise DAVError(HTTP_FORBIDDEN)
 
-    def end_write(self, with_errors):
+    def end_write(self, *, with_errors):
         """Called when PUT has finished writing.
 
         This is only a notification that MAY be handled.
@@ -1332,6 +1370,15 @@ class DAVCollection(_DAVResource):
         assert self.is_collection
         raise DAVError(HTTP_FORBIDDEN)
 
+    def get_etag(self):
+        """
+        See http://www.webdav.org/specs/rfc4918.html#PROPERTY_getetag
+
+        For non-collections we default to None, because it is harder to implement.
+        See also `DAVCollection.support_etag()`.
+        """
+        return None
+
     def get_member(self, name):
         """Return child resource with a given name (None, if not found).
 
@@ -1344,6 +1391,7 @@ class DAVCollection(_DAVResource):
             util.join_uri(self.path, name), self.environ
         )
 
+    @abstractmethod
     def get_member_names(self):
         """Return list of (direct) collection member names (UTF-8 byte strings).
 
@@ -1351,6 +1399,14 @@ class DAVCollection(_DAVResource):
         """
         assert self.is_collection
         raise NotImplementedError
+
+    def support_etag(self):
+        """Return True, if this resource supports ETags.
+
+        For non-collections we default to False, because it is harder to implement.
+        See also `DAVCollection.get_etag()`.
+        """
+        return False
 
     def support_recursive_delete(self):
         """Return True, if delete() may be called on non-empty collections
@@ -1369,7 +1425,7 @@ class DAVCollection(_DAVResource):
         """
         raise DAVError(HTTP_FORBIDDEN)
 
-    def copy_move_single(self, dest_path, is_move):
+    def copy_move_single(self, dest_path, *, is_move):
         """Copy or move this resource to destPath (non-recursive).
 
         This method MUST be implemented if resource allows write access.
@@ -1409,7 +1465,7 @@ class DAVCollection(_DAVResource):
 # ========================================================================
 
 
-class DAVProvider(object):
+class DAVProvider(ABC):
     """Abstract base class for DAV resource providers.
 
     There will be only one DAVProvider instance per share (not per request).
@@ -1471,10 +1527,9 @@ class DAVProvider(object):
 
         Used to calculate the <path> from a storage key by inverting get_ref_url().
         """
-        return "/" + compat.unquote(util.lstripstr(ref_url, self.share_path)).lstrip(
-            "/"
-        )
+        return "/" + unquote(util.removeprefix(ref_url, self.share_path)).lstrip("/")
 
+    @abstractmethod
     def get_resource_inst(self, path, environ):
         """Return a _DAVResource object for path.
 

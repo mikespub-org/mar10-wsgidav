@@ -15,7 +15,7 @@ from tempfile import gettempdir
 import requests
 
 from tests.util import Timing, WsgiDavTestServer, write_test_file
-from wsgidav import compat
+from wsgidav import util
 from wsgidav.dav_provider import DAVNonCollection, DAVProvider
 from wsgidav.stream_tools import FileLikeQueue
 
@@ -37,7 +37,19 @@ class MockProxyResource(DAVNonCollection):
         self.target_path = target_path
         self.worker = None
 
-    def begin_write(self, content_type=None):
+    def get_content(self):  # Keep ABC happy
+        raise NotImplementedError
+
+    def get_content_length(self):  # Keep ABC happy
+        raise NotImplementedError
+
+    def get_etag(self):
+        return None
+
+    def support_etag(self):
+        return False
+
+    def begin_write(self, *, content_type=None):
         # print("begin_write: {}".format(self.target_path))
         queue = FileLikeQueue(max_size=1)
 
@@ -53,7 +65,7 @@ class MockProxyResource(DAVNonCollection):
                 while data:
                     s += len(data)
                     # print("_consumer: read(): write")
-                    f.write(compat.to_bytes(data))
+                    f.write(util.to_bytes(data))
                     data = queue.read()
             # print("_consumer(): done", s)
 
@@ -62,7 +74,7 @@ class MockProxyResource(DAVNonCollection):
         self.worker.start()
         return queue
 
-    def end_write(self, with_errors):
+    def end_write(self, *, with_errors):
         print("end_write: {}".format(self.target_path))
         self.worker.join()
 
@@ -105,8 +117,8 @@ class BasicTest(unittest.TestCase):
     def testFileLikeQueueUnsized(self):
         # queue of unlimited size
         q = FileLikeQueue()
-        q.write("*" * 42)
-        q.write("*" * 3)
+        q.write(b"*" * 42)
+        q.write(b"*" * 3)
         # unsized reads will return chunks as queued
         res = q.read()
         self.assertEqual(len(res), 42)
@@ -114,34 +126,34 @@ class BasicTest(unittest.TestCase):
         self.assertEqual(len(res), 3)
         q.close()  # subsequent reads will return "" instead of blocking
         res = q.read()
-        self.assertEqual(res, "", "Read after close() returns ''")
+        self.assertEqual(res, b"", "Read after close() returns ''")
         # subsequent write will raise
-        self.assertRaises(ValueError, q.write, "***")
+        self.assertRaises(ValueError, q.write, b"***")
 
     def testFileLikeQueue(self):
         # queue of unlimited size
         q = FileLikeQueue()
         # queue 32 bytes
-        q.write("*" * 7)
-        q.write("*" * 11)
-        q.write("*" * 5)
-        q.write("*" * 9)
+        q.write(b"*" * 7)
+        q.write(b"*" * 11)
+        q.write(b"*" * 5)
+        q.write(b"*" * 9)
         q.close()
         # sized reads will return chunks as demanded
         for _ in range(6):
             self.assertEqual(len(q.read(5)), 5)
         self.assertEqual(len(q.read(5)), 2, "last chunk delivers the reminder")
-        self.assertEqual(len(q.read(5)), 0, "furtehr read() returns ''")
+        self.assertEqual(len(q.read(5)), 0, "further read() returns ''")
         # self.assertEqual(q.size, 0)
 
     def testFileLikeQueueAll(self):
         # queue of unlimited size
         q = FileLikeQueue()
         # queue 32 bytes
-        q.write("*" * 7)
-        q.write("*" * 11)
-        q.write("*" * 5)
-        q.write("*" * 9)
+        q.write(b"*" * 7)
+        q.write(b"*" * 11)
+        q.write(b"*" * 5)
+        q.write(b"*" * 9)
         q.close()
         # read(-1) returns all, then ''
         self.assertEqual(len(q.read(-1)), 32)

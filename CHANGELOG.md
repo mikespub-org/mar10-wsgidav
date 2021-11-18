@@ -1,10 +1,28 @@
 # Changelog
 
+## 4.0.0 / Unreleased
+
+- Drop Python 2 support
+- Drop support for Python syntax in config files (wsgidav.conf)
+- Drop support for Microsoft Web Folders (option `dir_browser.ms_mount`).
+- DAVCollection, DAVNonCollection, DAVProvider are ABCs now
+- API enforces some named keyword args (`..., *, ...`)
+- hotfixes.re_encode_path_info is true by default (null evaluates to false now!)
+- Deprecate hotfixes.winxp_accept_root_share_login and hotfixes.win_accept_anonymous_options
+- Move logging options to 'logging' section
+- Add uvicorn server support to CLI, drop flup and CherryPy
+- DirBrowser supports `?davmount` URLs by default (option `dir_browser.davmount`).
+  The new option `dir_browser.davmount_links` controls link display (default: false).
+- #185 Fix FileLikeQueue for Python 3
+- #222 Discrepancy between "getetag" property and ETag header
+
+## 3.1.2 / Unreleased
+
 ## 3.1.1 / 2021-07-11
 
 - #201 Check also HTTP_X_FORWARDED_HOST as alternative to DESTINATION header
-- #216 Build with Python 3.8 (Py3.9 doesn't work on Windows7 / Windows Server 2008 R2 / Ealier)
-- #220 Fix exception whenever user access unknown realm
+- #216 Build with Python 3.8 (Py3.9 doesn't work on Windows7 / Windows Server 2008 R2 / earlier)
+- #220 Fix exception whenever users access unknown realm
 - #225 Include changelog in PyPI package
 
 ## 3.1.0 / 2021-01-04

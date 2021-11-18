@@ -97,8 +97,10 @@ When accessed using WebDAV, the following URLs both return the same resource
 """
 import os
 import stat
+from io import BytesIO
+from urllib.parse import quote
 
-from wsgidav import compat, util
+from wsgidav import util
 from wsgidav.dav_error import (
     HTTP_FORBIDDEN,
     HTTP_INTERNAL_ERROR,
@@ -149,7 +151,7 @@ _resourceData = [
     },
     {
         "key": "3",
-        "title": u"My doc (euro:\u20AC, uuml:��)".encode("utf8"),
+        "title": "My doc (euro:\u20AC, uuml:��)".encode("utf8"),
         "orga": "marketing",
         "tags": ["nice"],
         "status": "published",
@@ -319,7 +321,7 @@ class VirtualResource(DAVCollection):
         self.data["tags"].remove(tag)
         return True  # OK
 
-    def handle_copy(self, dest_path, depth_infinity):
+    def handle_copy(self, dest_path, *, depth_infinity):
         """Change semantic of COPY to add resource tags."""
         # destPath must be '/by_tag/<tag>/<resname>'
         if "/by_tag/" not in dest_path:
@@ -349,15 +351,17 @@ class VirtualResource(DAVCollection):
 
     def get_ref_url(self):
         refPath = "/by_key/%s" % self.data["key"]
-        return compat.quote(self.provider.share_path + refPath)
+        return quote(self.provider.share_path + refPath)
 
-    def get_property_names(self, is_allprop):
+    def get_property_names(self, *, is_allprop):
         """Return list of supported property names in Clark Notation.
 
         See DAVResource.get_property_names()
         """
         # Let base class implementation add supported live and dead properties
-        propNameList = super(VirtualResource, self).get_property_names(is_allprop)
+        propNameList = super(VirtualResource, self).get_property_names(
+            is_allprop=is_allprop
+        )
         # Add custom live properties (report on 'allprop' and 'propnames')
         propNameList.extend(VirtualResource._supportedProps)
         return propNameList
@@ -479,7 +483,7 @@ class VirtualArtifact(_VirtualNonCollection):
 
     def get_ref_url(self):
         refPath = "/by_key/%s/%s" % (self.data["key"], self.name)
-        return compat.quote(self.provider.share_path + refPath)
+        return quote(self.provider.share_path + refPath)
 
     def get_content(self):
         fileLinks = [
@@ -536,7 +540,7 @@ class VirtualArtifact(_VirtualNonCollection):
             html = self.data["description"]
         else:
             raise DAVError(HTTP_INTERNAL_ERROR, "Invalid artifact '%s'" % self.name)
-        return compat.BytesIO(compat.to_bytes(html))
+        return BytesIO(util.to_bytes(html))
 
 
 # ============================================================================
@@ -578,7 +582,7 @@ class VirtualResFile(_VirtualNonCollection):
 
     def get_ref_url(self):
         refPath = "/by_key/%s/%s" % (self.data["key"], os.path.basename(self.file_path))
-        return compat.quote(self.provider.share_path + refPath)
+        return quote(self.provider.share_path + refPath)
 
     def get_content(self):
         # mime = self.get_content_type()
