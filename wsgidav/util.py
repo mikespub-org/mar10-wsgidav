@@ -17,10 +17,11 @@ import socket
 import stat
 import sys
 import time
+from copy import deepcopy
 from email.utils import formatdate, parsedate
 from hashlib import md5
 from pprint import pformat
-from typing import Optional
+from typing import Iterable, Optional
 from urllib.parse import quote
 
 from wsgidav.dav_error import (
@@ -83,6 +84,99 @@ def to_str(s, encoding="utf8"):
     elif type(s) is not str:
         s = str(s)
     return s
+
+
+def to_set(val, allow_none=False) -> set:
+    res = None
+    if type(val) is set:
+        res = val
+    elif type(val) is str:
+        res = set(map(str.strip, val.split(",")))
+    elif isinstance(val, (dict, list, tuple)):
+        res = set(map(str, val))
+    elif val is None and allow_none:
+        res = None
+    else:
+        raise TypeError(f"{val}, {type(val)}")
+    return res
+
+
+# password_patterns = []
+
+
+def purge_passwords(d, *, in_place=False):
+    def _purge(v):
+        if isinstance(v, dict):
+            if "password" in v:
+                v["password"] = "<REMOVED>"
+            for ele in v.values():
+                _purge(ele)
+        elif isinstance(v, Iterable) and not isinstance(v, str):
+            for ele in v:
+                _purge(ele)
+
+    if not in_place:
+        d = deepcopy(d)
+
+    for v in d.values():
+        _purge(v)
+
+    if in_place:
+        return None  # good convention to return None for mutating functions
+    return d
+
+
+def check_tags(tags, known, *, msg=None, raise_error=True, required=False):
+    """Check if `tags` only contains known tags.
+
+    If check fails and raise_error is true, a ValueError is raised.
+    If check passes, None is returned.
+    """
+    assert known, "must not be empty"
+    known = to_set(known)
+    optional = known
+
+    if required is True:
+        required = known
+        optional = set()
+    elif required:
+        required = to_set(required)
+        known = known.union(required)
+        optional = known.difference(required)
+
+    tags = to_set(tags)
+
+    res = []
+    unknown = tags.difference(known)
+    if unknown:
+        res.append("Unknown: '{}'".format("', '".join(unknown)))
+
+    if required:
+        missing = required.difference(tags)
+        if missing:
+            res.append("Missing: '{}'".format("', '".join(missing)))
+
+    if res:
+        if msg:
+            res.insert(0, msg)
+
+        if required and optional:
+            res.append(
+                "Required: ('{}'). Optional: ('{}')".format(
+                    "', '".join(required), "', '".join(optional)
+                )
+            )
+        elif required:
+            res.append("Required: ('{}')".format("', '".join(required)))
+        elif optional:
+            res.append("Optional: ('{}')".format("', '".join(optional)))
+
+        res = "\n".join(res)
+        if raise_error:
+            raise ValueError(res)
+        return res
+
+    return None
 
 
 # --- WSGI support ---
@@ -187,7 +281,7 @@ def init_logging(config):
 
     Module loggers
     ~~~~~~~~~~~~~~
-    Module loggers (e.g 'wsgidav.lock_manager') are named loggers, that can be
+    Module loggers (e.g 'wsgidav.lock_man.lock_manager') are named loggers, that can be
     independently switched to DEBUG mode.
 
     Except for verbosity, they will inherit settings from the base logger.
@@ -315,9 +409,18 @@ def get_module_logger(moduleName, *, default_to_verbose=False):
 
 
 def deep_update(d, u):
+    # print(f"deep_update({d}, {u})")
     for k, v in u.items():
         if isinstance(v, collections.abc.Mapping):
-            d[k] = deep_update(d.get(k, {}), v)
+            # print(f"deep_update({d}, {u}): k={k}, v={v}")
+            prev_val = d.get(k)
+            # if type(prev_val) in (bool, float, int, str):
+            if prev_val is None or type(prev_val) in (bool, float, int, str):
+                # Prev. values is a scalar: replace it with a copy of the new dict
+                d[k] = v.copy()
+            else:
+                # Merge new values into prev. dict
+                d[k] = deep_update(d.get(k, {}), v)
         else:
             d[k] = v
     return d
@@ -332,6 +435,8 @@ def dynamic_import_class(name):
     """Import a class from a module string, e.g. ``my.module.ClassName``."""
     import importlib
 
+    if "." not in name:
+        raise ValueError(f"Expected `path.to.ClassName` string: {name!r}")
     module_name, class_name = name.rsplit(".", 1)
     try:
         module = importlib.import_module(module_name)
@@ -342,16 +447,25 @@ def dynamic_import_class(name):
     return the_class
 
 
-def dynamic_instantiate_middleware(name, options, *, expand=None):
+def dynamic_instantiate_class(class_name, options, *, expand=None):
     """Import a class and instantiate with custom args.
 
+    Equivalent of
+    ```py
+    from my.module import Foo
+    return Foo(bar=42, baz="qux")
+    ```
+    would be
+    ```py
+    options = {
+        "bar": 42,
+        "baz": "qux"
+    }
+    =>
+    ```
     Examples:
+        # Equivalent of
         name = "my.module.Foo"
-        options = {
-            "bar": 42,
-            "baz": "qux"
-            }
-        =>
         from my.module import Foo
         return Foo(bar=42, baz="qux")
     """
@@ -362,17 +476,32 @@ def dynamic_instantiate_middleware(name, options, *, expand=None):
             return expand[v]
         return v
 
+    check_tags(
+        options,
+        {"args", "kwargs"},
+        msg=f"Invalid class instantiation options for {class_name}",
+    )
+    pos_args = options.get("args", [])
+    if pos_args is not None and not isinstance(pos_args, (tuple, list)):
+        raise ValueError(f"Expected list format for `args` option: {options}")
+
+    kwargs = options.get("kwargs", {})
+    if kwargs is not None and not isinstance(kwargs, dict):
+        raise ValueError(f"Expected dict format for `kwargs` option: {options}")
+
     try:
-        the_class = dynamic_import_class(name)
         inst = None
-        pos_args = []
-        kwargs = {}
-        if type(options) in (tuple, list):
-            pos_args = tuple(map(_expand, options))
-        elif type(options) is dict:
-            kwargs = {k: _expand(v) for k, v in options.items()}
-        else:
-            raise ValueError(f"Unexpected options format: {options}")
+        the_class = dynamic_import_class(class_name)
+        pos_args = tuple(map(_expand, pos_args))
+        kwargs = {k: _expand(v) for k, v in kwargs.items()}
+        # pos_args = []
+        # kwargs = {}
+        # if type(options) in (tuple, list):
+        #     pos_args = tuple(map(_expand, options))
+        # elif type(options) is dict:
+        #     kwargs = {k: _expand(v) for k, v in options.items()}
+        # else:
+        #     raise ValueError(f"Unexpected options format: {options}")
 
         inst = the_class(*pos_args, **kwargs)
 
@@ -380,12 +509,46 @@ def dynamic_instantiate_middleware(name, options, *, expand=None):
             f"{k}={v!r}" for k, v in kwargs.items()
         ]
         _logger.debug(
-            "Instantiate {}({}) => {}".format(name, ", ".join(disp_args), inst)
+            "Instantiate {}({}) => {}".format(class_name, ", ".join(disp_args), inst)
         )
     except Exception:
-        _logger.exception("ERROR: Instantiate {}({}) => {}".format(name, options, inst))
+        _logger.exception(f"ERROR: Instantiate {class_name}({options}) failed")
 
     return inst
+
+
+def dynamic_instantiate_class_from_opts(options, *, expand=None):
+    """Import a class and instantiate with custom args.
+
+
+    Construct from class path, without constructor args:
+    ```py
+    dynamic_instantiate_class_from_opts("wsgidav.lock_man.lock_storage.LockStorageDict")
+    ```
+    Construct with constructor args:
+    ```py
+    opts = {
+        "class": "wsgidav.lock_man.lock_storage.LockStorageShelve",
+        "kwargs": {
+            "storage_path": "~/wsgidav_locks.shelve",
+        }
+    }
+    dynamic_instantiate_class_from_opts(opts, expand=...)
+    ```
+    """
+    if type(options) is str:
+        options = {"class": options}
+    else:
+        options = options.copy()
+
+    check_tags(
+        options,
+        {"class", "args", "kwargs"},
+        required="class",
+        msg="Invalid class instantiation options",
+    )
+    class_name = options.pop("class")
+    return dynamic_instantiate_class(class_name, options, expand=expand)
 
 
 # ========================================================================

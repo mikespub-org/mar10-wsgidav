@@ -11,7 +11,9 @@ from io import StringIO
 
 from wsgidav.util import (
     BASE_LOGGER_NAME,
+    check_tags,
     checked_etag,
+    deep_update,
     get_module_logger,
     init_logging,
     is_child_uri,
@@ -81,6 +83,27 @@ class BasicTest(unittest.TestCase):
         self.assertEqual(shift_path("/a/b/c", "/"), ("", "/a/b/c", ""))
         self.assertEqual(shift_path("/a/b/c", ""), ("", "/a/b/c", ""))
 
+        assert check_tags("b", ["a", "b", "c"]) is None
+        assert check_tags("b", ("a", "b", "c")) is None
+        assert check_tags("b", {"a", "b", "c"}) is None
+        assert check_tags("b", "a, b, c") is None
+        assert check_tags("b", {"a": 1, "b": 2, "c": 3}) is None
+        self.assertRaises(ValueError, check_tags, "x", ["a", "b", "c"])
+        known = {"a", "b", "c"}
+        assert check_tags(("a", "c"), known) is None
+        assert check_tags(["a", "c"], known) is None
+        assert check_tags({"a", "c"}, known) is None
+        assert check_tags("a, c", known) is None
+        assert check_tags({"a": 1, "c": 3}, known) is None
+        self.assertRaises(ValueError, check_tags, {"a", "x"}, known)
+        self.assertRaises(ValueError, check_tags, {"a", "c"}, known, required=True)
+        # assert (
+        #     check_tags({"a", "x"}, known, check_missing=True, raise_error=False)
+        #     == "Unknown: 'x'\n"
+        #     "Missing: 'c', 'b'\n"
+        #     "Known: 'c', 'a', 'b'"
+        # )
+
         assert checked_etag(None, allow_none=True) is None
         assert checked_etag("abc") == "abc"
         self.assertRaises(ValueError, checked_etag, '"abc"')
@@ -93,6 +116,36 @@ class BasicTest(unittest.TestCase):
         assert parse_if_match_header(" abc , def") == ["abc", "def"]
         assert parse_if_match_header(' "abc" , def ') == ["abc", "def"]
         assert parse_if_match_header(' W/"abc" , def ') == ["abc", "def"]
+
+        d_org = {"b": True, "d": {"i": 1, "t": (1, 2)}}
+        d_new = {}
+        assert deep_update(d_org.copy(), d_new) == d_org
+        assert deep_update(d_org.copy(), {"b": False}) == {
+            "b": False,
+            "d": {"i": 1, "t": (1, 2)},
+        }
+        assert deep_update(d_org.copy(), {"b": {"class": "c"}}) == {
+            "b": {"class": "c"},
+            "d": {"i": 1, "t": (1, 2)},
+        }
+
+        d_new = {
+            "user_mapping": {
+                "*": {
+                    "tester": {
+                        "password": "secret",
+                        "description": "",
+                        "roles": [],
+                    },
+                    "tester2": {
+                        "password": "secret2",
+                        "description": "",
+                        "roles": [],
+                    },
+                }
+            }
+        }
+        assert deep_update({"user_mapping": {}}, d_new) == d_new
 
 
 class LoggerTest(unittest.TestCase):

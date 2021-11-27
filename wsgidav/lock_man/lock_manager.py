@@ -9,8 +9,8 @@ Implements the `LockManager` object that provides the locking functionality.
 The LockManager requires a LockStorage object to implement persistence.
 Two alternative lock storage classes are defined in the lock_storage module:
 
-- wsgidav.lock_storage.LockStorageDict
-- wsgidav.lock_storage.LockStorageShelve
+- wsgidav.lock_man.lock_storage.LockStorageDict
+- wsgidav.lock_man.lock_storage.LockStorageShelve
 
 
 The lock data model is a dictionary with these fields:
@@ -157,11 +157,6 @@ class LockManager:
             userDict.setdefault(lock["principal"], []).append(tok)
             ownerDict.setdefault(lock["owner"], []).append(tok)
             urlDict.setdefault(lock["root"], []).append(tok)
-
-        #            assert ("URL2TOKEN:" + v["root"]) in self._dict, ("Inconsistency: missing"
-        #                "URL2TOKEN:%s") % v["root"]
-        #            assert v["token"] in self._dict["URL2TOKEN:" + v["root"]], ("Inconsistency: missing "
-        #                "token %s in URL2TOKEN:%s" % (v["token"], v["root"])
 
         _logger.info("Locks:\n{}".format(pformat(tokenDict, indent=0, width=255)))
         if tokenDict:

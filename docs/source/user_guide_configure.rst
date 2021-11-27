@@ -66,7 +66,7 @@ The options described below can be defined for the CLI either
   * or `JSON <https://www.json.org/>`_ syntax inside a wsgidav.json file
 
 .. note::
-   The three supported file formats are just different ways for the CLI to
+   The two supported file formats are just different ways for the CLI to
    generate a Python dict that is then passed to the
    :class:`~wsgidav.wsgidav_app.WsgiDAVApp` constructor.
 
@@ -76,7 +76,7 @@ For a start, copy
 :download:`YAML Sample Configuration<../../sample_wsgidav.yaml>`
 and edit it to your needs.
 (Alternatively use
-:download:`JSON Sample Configuration<../sample_wsgidav.json>`.)
+:download:`JSON Sample Configuration<../../sample_wsgidav.json>`.)
 
 
 Verbosity Level
@@ -180,9 +180,11 @@ should be explicitly listed::
 
     ...
     middleware_stack:
-        - dozer.Dozer:
+        - class: dozer.Dozer
+          args:
             - "${application}"
-        - dozer.Profiler:
+        - class: dozer.Profiler
+          args:
             - "${application}"
             - null  # global_conf
             - /tmp  # profile_path
@@ -197,7 +199,8 @@ It is also possible to pass options as named args (i.e. 'kwargs')::
     ...
     middleware_stack:
         ...
-        - dozer.Profiler:
+        - class: dozer.Profiler
+          kwargs:
             app: "${application}"
             profile_path: /tmp
         ...
@@ -228,9 +231,15 @@ editing depending on authentication.
 
 Three syntax variants are supported:
 
-1. ``<mount_path>: <folder_path>``
-2. ``<mount_path>: { "root": <folder_path>, "readonly": <bool> }``
-3. ``<mount_path>: { "provider": <class_path>, "args:" ..., "kwargs": ... }``
+1. ``<mount_path>: <folder_path>``:
+   use ``FilesystemProvider(folder_path)``
+2. ``<mount_path>: { "root": <folder_path>, "readonly": <bool> }``:
+   use ``FilesystemProvider(folder_path, readonly)``
+3. ``<mount_path>: { "class": <class_path>, args: [arg, ...], kwargs: {"arg1": val1, "arg2": val2, ... }}``
+   Instantiate a custom class (derrived from ``DAVProvider``) using named
+   kwargs.
+..
+   1. ``<mount_path>: { "provider": <class_path>, "args:" ..., "kwargs": ... }``
 
 For example::
 
@@ -241,21 +250,54 @@ For example::
             root: "/path/to/share2"
             readonly: true
         "/share3":
-            provider: path.to.CustomDAVProviderClass
-            args: ["/path/to/share3", "second_arg"]
-            kwargs: {"another_arg": 42}
+            class: path.to.CustomDAVProviderClass
+            args:
+                - pos_arg1
+                - pos_arg2
+            kwargs:
+                path: '/path/to/share3'
+                another_arg: 42
 
 
 Property Manager
 ----------------
 
-.. todo:: TODO
+The built-in ``PropertyManager``.
+
+Possible options are:
+
+- Disable locking, by passing ``property_manager: null``.
+- Enable default storage, which is implemented using a memory-based,
+  **not** persistent storage, by passing ``property_manager: true``.
+  (This is an alias for ``property_manager: wsgidav.prop_man.property_manager.PropertyManager``)
+- Enable an installed or custom storage
+
+Example: Use a persistent shelve based property storage::
+
+    property_manager:
+        class: wsgidav.prop_man.property_manager.ShelvePropertyManager
+        storage_path: /path/to/wsgidav_locks.shelve
 
 
-Lock Manager
-------------
+Lock Manager and Storage
+------------------------
 
-.. todo:: TODO
+The built-in ``LockManager`` requires a ``LockStorage`` instance.
+
+Possible options are:
+
+- Disable locking, by passing ``lock_storage: null``.
+- Enable default locking, which is implemented using a memory-based,
+  **not** persistent storage, by passing ``lock_storage: true``.
+  (This is an alias for ``lock_storage: wsgidav.lock_man.lock_storage.LockStorageDict``)
+- Enable an installed lock storage
+
+Example: Use a persistent shelve based lock storage::
+
+    lock_storage:
+        class: wsgidav.lock_man.lock_storage.LockStorageShelve
+        kwargs:
+            storage_path: /path/to/wsgidav_locks.shelve
 
 
 Domain Controller
@@ -376,6 +418,22 @@ line like::
     $ wsgidav ... --auth=pam-login
 
 
+Custom Domain Controllers
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+A custom domain controller can be used like so::
+
+    http_authenticator:
+        domain_controller: path.to.CustomDomainController
+
+The constructor must accept two arguments::
+
+    def __init__(self, wsgidav_app, config)
+
+Note that this allows the custom controller to read the configuration dict
+and look for a custom section there.
+
+
 Sample ``wsgidav.yaml``
 -----------------------
 
@@ -394,5 +452,5 @@ Sample ``wsgidav.json``
 We can also use a `JSON <http://www.json.org>`_ file for configuration.
 The structure is identical to the YAML format.
 
-See the :doc:`sample_wsgidav.json` example.
+See the :doc:`../sample_wsgidav.json` example.
 (Note that the parser allows JavaScript-style comments)

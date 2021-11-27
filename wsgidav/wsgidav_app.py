@@ -59,13 +59,13 @@ from wsgidav.dav_provider import DAVProvider
 from wsgidav.default_conf import DEFAULT_CONFIG
 from wsgidav.fs_dav_provider import FilesystemProvider
 from wsgidav.http_authenticator import HTTPAuthenticator
-from wsgidav.lock_manager import LockManager
-from wsgidav.lock_storage import LockStorageDict
+from wsgidav.lock_man.lock_manager import LockManager
+from wsgidav.lock_man.lock_storage import LockStorageDict
 from wsgidav.middleware import BaseMiddleware
 from wsgidav.prop_man.property_manager import PropertyManager
 from wsgidav.util import (
     dynamic_import_class,
-    dynamic_instantiate_middleware,
+    dynamic_instantiate_class_from_opts,
     safe_re_encode,
 )
 
@@ -101,6 +101,7 @@ def _check_config(config):
         "http_authenticator.preset_domain": "nt_dc.preset_domain",
         "http_authenticator.preset_server": "nt_dc.preset_server",
         "locksmanager": "lock_manager",
+        "lock_manager": "lock_storage",
         "logger_date_format": "logging.logger_date_format",
         "logger_format": "logging.logger_format",
         "logging.verbose": "verbose",  # prevent a likely mistake
@@ -138,6 +139,8 @@ class WsgiDAVApp:
         util.deep_update(self.config, config)
         config = self.config
 
+        expand = {"${application}": self}
+
         # Evaluate configuration and set defaults
         _check_config(config)
 
@@ -148,21 +151,35 @@ class WsgiDAVApp:
         self.re_encode_path_info = hotfixes.get("re_encode_path_info", True)
         self.unquote_path_info = hotfixes.get("unquote_path_info", False)
 
-        lock_storage = config.get("lock_manager")
+        lock_storage = config.get("lock_storage")
         if lock_storage is True:
             lock_storage = LockStorageDict()
+        elif isinstance(lock_storage, (str, dict)):
+            lock_storage = dynamic_instantiate_class_from_opts(
+                lock_storage, expand=expand
+            )
 
         if not lock_storage:
+            # Normalize False, 0 to None
             self.lock_manager = None
         else:
+            if not hasattr(lock_storage, "refresh"):
+                raise ValueError(f"Invalid lock_storage: {lock_storage!r}")
             self.lock_manager = LockManager(lock_storage)
 
-        self.prop_manager = config.get("property_manager")
-        if not self.prop_manager:
+        prop_manager = config.get("property_manager")
+        if prop_manager is True:
+            prop_manager = PropertyManager()
+        elif isinstance(prop_manager, (str, dict)):
+            prop_manager = dynamic_instantiate_class_from_opts(
+                prop_manager, expand=expand
+            )
+
+        if not prop_manager:
             # Normalize False, 0 to None
             self.prop_manager = None
-        elif self.prop_manager is True:
-            self.prop_manager = PropertyManager()
+        else:
+            self.prop_manager = prop_manager
 
         self.mount_path = config.get("mount_path")
         auth_conf = config.get("http_authenticator", {})
@@ -207,15 +224,8 @@ class WsgiDAVApp:
                 app_class = dynamic_import_class(mw)
                 app = app_class(self, self.application, config)
             elif type(mw) is dict:
-                # If a dict with one entry is passed, use the key as module/class name
-                # and the value as constructor arguments (positional or kwargs).
-                if len(mw) != 1:
-                    raise ValueError(f"Invalid middleware opts: {mw}")
-                name, args = list(mw.items())[0]
-                if type(args) not in (dict, list, tuple):
-                    raise ValueError(f"Invalid middleware opts for {name}: {args}")
-                expand = {"${application}": self.application}
-                app = dynamic_instantiate_middleware(name, args, expand=expand)
+                # If a dict with one entry is passed, expect {class: ..., kwargs: ...}
+                app = dynamic_instantiate_class_from_opts(mw, expand=expand)
             elif inspect.isclass(mw):
                 # If a class is passed, assume BaseMiddleware (or compatible)
                 # TODO: remove this assert with 3.0
@@ -300,25 +310,34 @@ class WsgiDAVApp:
         share = "/" + share.strip("/")
         assert share not in self.provider_map
 
-        if util.is_basestring(provider):
+        if type(provider) is str:
             # Syntax:
             #   <mount_path>: <folder_path>
             # We allow a simple string as 'provider'. In this case we interpret
             # it as a file system root folder that is published.
             provider = FilesystemProvider(provider, readonly=readonly)
         elif type(provider) in (dict,):
-            if "provider" in provider:
+            # if "provider" in provider:
+            if "class" in provider:
                 # Syntax:
-                #   <mount_path>: {"provider": <class_path>, "args": <pos_args>, "kwargs": <named_args}
-                prov_class = dynamic_import_class(provider["provider"])
-                provider = prov_class(
-                    *provider.get("args", []), **provider.get("kwargs", {})
-                )
-            else:
+                #   <mount_path>: {"class": <class_path>, <arg_name>: <val>, ...>}
+                expand = {"${application}": self}
+                provider = dynamic_instantiate_class_from_opts(provider, expand=expand)
+            #     # Syntax:
+            #     #   <mount_path>: {"provider": <class_path>, "args": <pos_args>, "kwargs": <named_args>}
+            #     prov_class = dynamic_import_class(provider["provider"])
+            #     provider = prov_class(
+            #         *provider.get("args", []), **provider.get("kwargs", {})
+            #     )
+            elif "root" in provider:
                 # Syntax:
                 #   <mount_path>: {"root": <path>, "redaonly": <bool>}
                 provider = FilesystemProvider(
                     provider["root"], readonly=bool(provider.get("readonly", False))
+                )
+            else:
+                raise ValueError(
+                    f"Provider expected {{'class': ...}}` or {{'root': ...}}: {provider}"
                 )
         elif type(provider) in (list, tuple):
             raise ValueError(
