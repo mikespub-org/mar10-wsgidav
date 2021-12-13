@@ -4,6 +4,8 @@ Abstract base middleware class (optional use).
 """
 from abc import ABC, abstractmethod
 
+from wsgidav.util import NO_DEFAULT, get_dict_value
+
 __docformat__ = "reStructuredText"
 
 
@@ -17,7 +19,7 @@ class BaseMiddleware(ABC):
     Derived classes in WsgiDAV include::
 
         wsgidav.dir_browser.WsgiDavDirBrowser
-        wsgidav.debug_filter.WsgiDavDebugFilter
+        wsgidav.mw.debug_filter.WsgiDavDebugFilter
         wsgidav.error_printer.ErrorPrinter
         wsgidav.http_authenticator.HTTPAuthenticator
         wsgidav.request_resolver.RequestResolver
@@ -37,5 +39,10 @@ class BaseMiddleware(ABC):
         return "{}.{}".format(self.__module__, self.__class__.__name__)
 
     def is_disabled(self):
-        """Optionally return False to skip this module on startup."""
+        """Optionally return True to skip this module on startup."""
         return False
+
+    def get_config(self, key_path: str, default=NO_DEFAULT):
+        """Optionally return True to skip this module on startup."""
+        res = get_dict_value(self.config, key_path, default)
+        return res

@@ -15,7 +15,7 @@ a Python ``dict`` with distinct options, that define
   * Server options (hostname, port, SSL cert, ...)
   * List of share-name / WebDAV provider mappings
   * Optional list of users for authentication
-  * Optional custom DAV providers (i.e. other than `FilesystemProvider`)
+  * Optional custom DAV providers (i.e. other than :class:`~wsgidav.fs_dav_provider.FilesystemProvider`)
   * Optional custom lock manager, property manager and domain controller
   * Advanced debugging options
   * (and more)
@@ -62,8 +62,8 @@ To *prevent* the use of a local default configuration file, use this option::
 
 The options described below can be defined for the CLI either
 
-  * in `YAML <https://yaml.org/spec/>`_ syntax inside a wsgidav.yaml file
-  * or `JSON <https://www.json.org/>`_ syntax inside a wsgidav.json file
+  * in `YAML <https://yaml.org/spec>`_ syntax inside a wsgidav.yaml file
+  * or `JSON <https://www.json.org>`_ syntax inside a wsgidav.json file
 
 .. note::
    The two supported file formats are just different ways for the CLI to
@@ -76,7 +76,7 @@ For a start, copy
 :download:`YAML Sample Configuration<../../sample_wsgidav.yaml>`
 and edit it to your needs.
 (Alternatively use
-:download:`JSON Sample Configuration<../../sample_wsgidav.json>`.)
+:download:`JSON Sample Configuration<./sample_wsgidav.json>`.)
 
 
 Verbosity Level
@@ -106,7 +106,7 @@ functionality.
 
 This stack is defined as a list of WSGI compliant application instances, e.g.::
 
-    from wsgidav.debug_filter import WsgiDavDebugFilter
+    from wsgidav.mw.debug_filter import WsgiDavDebugFilter
 
     debug_filter = WsgiDavDebugFilter(wsgidav_app, next_app, config)
 
@@ -121,11 +121,11 @@ This stack is defined as a list of WSGI compliant application instances, e.g.::
 
 If the middleware class constructor has a common signature, it is sufficient to
 pass the class instead of the instantiated object.
-The built-in middleware derives from :class:`~wsgidav.middleware.BaseMiddleware`,
+The built-in middleware derives from :class:`~wsgidav.mw.base_mw.BaseMiddleware`,
 so we can simplify as::
 
     from wsgidav.dir_browser import WsgiDavDirBrowser
-    from wsgidav.debug_filter import WsgiDavDebugFilter
+    from wsgidav.mw.debug_filter import WsgiDavDebugFilter
     from wsgidav.error_printer import ErrorPrinter
     from wsgidav.http_authenticator import HTTPAuthenticator
     from wsgidav.request_resolver import RequestResolver
@@ -148,7 +148,7 @@ removes the directory browser, and adds a third-party debugging tool::
     import dozer
 
     # from wsgidav.dir_browser import WsgiDavDirBrowser
-    from wsgidav.debug_filter import WsgiDavDebugFilter
+    from wsgidav.mw.debug_filter import WsgiDavDebugFilter
     from wsgidav.error_printer import ErrorPrinter
     from wsgidav.http_authenticator import HTTPAuthenticator
     from wsgidav.request_resolver import RequestResolver
@@ -188,7 +188,7 @@ should be explicitly listed::
             - "${application}"
             - null  # global_conf
             - /tmp  # profile_path
-        - wsgidav.debug_filter.WsgiDavDebugFilter
+        - wsgidav.mw.debug_filter.WsgiDavDebugFilter
         - wsgidav.error_printer.ErrorPrinter
         - wsgidav.http_authenticator.HTTPAuthenticator
         - wsgidav.dir_browser.WsgiDavDirBrowser
@@ -216,16 +216,17 @@ DAVProvider
 A DAVProvider handles read and write requests for all URLs that start with
 a given share path.
 
-WsgiDAV comes bundled with ``FilesystemProvider``, a DAVProvider that serves
-DAV requests by reading and writing to the server's file system. |br|
+WsgiDAV comes bundled with :class:`~wsgidav.fs_dav_provider.FilesystemProvider`,
+a DAVProvider that serves DAV requests by reading and writing to the server's
+file system. |br|
 However, custom DAVProviders may be implemented and used, that publish a
 database backend, cloud drive, or any virtual data structure.
 
 The ``provider_mapping`` configuration routes share paths to specific
 DAVProvider instances.
 
-By default a writable `FilesystemProvider` is assumed, but can be forced
-to read-only.
+By default a writable :class:`~wsgidav.fs_dav_provider.FilesystemProvider` is
+assumed, but can be forced to read-only.
 Note that a DomainController may still restrict access completely or prevent
 editing depending on authentication.
 
@@ -238,6 +239,7 @@ Three syntax variants are supported:
 3. ``<mount_path>: { "class": <class_path>, args: [arg, ...], kwargs: {"arg1": val1, "arg2": val2, ... }}``
    Instantiate a custom class (derrived from ``DAVProvider``) using named
    kwargs.
+
 ..
    1. ``<mount_path>: { "provider": <class_path>, "args:" ..., "kwargs": ... }``
 
@@ -262,7 +264,7 @@ For example::
 Property Manager
 ----------------
 
-The built-in ``PropertyManager``.
+The built-in :class:`~wsgidav.prop_man.property_manager.PropertyManager``.
 
 Possible options are:
 
@@ -282,7 +284,8 @@ Example: Use a persistent shelve based property storage::
 Lock Manager and Storage
 ------------------------
 
-The built-in ``LockManager`` requires a ``LockStorage`` instance.
+The built-in :class:`~wsgidav.lock_man.lock_manager.LockManager` requires a
+:class:`~wsgidav.lock_man.lock_storage.LockStorageDict` instance.
 
 Possible options are:
 
@@ -292,7 +295,8 @@ Possible options are:
   (This is an alias for ``lock_storage: wsgidav.lock_man.lock_storage.LockStorageDict``)
 - Enable an installed lock storage
 
-Example: Use a persistent shelve based lock storage::
+A persistent, shelve based :class:`~wsgidav.lock_man.lock_storage.LockStorageShelve`
+is also available::
 
     lock_storage:
         class: wsgidav.lock_man.lock_storage.LockStorageShelve
@@ -309,7 +313,8 @@ Currently three variants are supported.
 SimpleDomainController
 ~~~~~~~~~~~~~~~~~~~~~~
 
-Allows to authenticate against a plain mapping of shares and user names.
+The :class:`wsgidav.dc.simple_dc.SimpleDomainController` allows to authenticate
+against a plain mapping of shares and user names.
 
 The pseudo-share ``"*"`` maps all URLs that are not explicitly listed.
 
@@ -362,7 +367,7 @@ NTDomainController
 ~~~~~~~~~~~~~~~~~~
 Allows users to authenticate against a Windows NT domain or a local computer.
 
-The :class:`~wsgidav.dc.nt_dc.NTDomainController` requires basic authentication
+The :class:`wsgidav.dc.nt_dc.NTDomainController` requires basic authentication
 and therefore should use SSL.
 
 Example YAML configuration::
@@ -393,7 +398,7 @@ Allows users to authenticate against a PAM (Pluggable Authentication Modules),
 that are at the core of user authentication in any modern linux distribution
 and macOS.
 
-The :class:`~wsgidav.dc.pam_dc.PAMDomainController` requires basic
+The :class:`wsgidav.dc.pam_dc.PAMDomainController` requires basic
 authentication and therefore should use SSL.
 
 Example YAML configuration that authenticates users against the server's
@@ -437,10 +442,10 @@ and look for a custom section there.
 Sample ``wsgidav.yaml``
 -----------------------
 
-The `YAML <http://yaml.org/spec/1.2/spec.html>`_ syntax is probably the most
-concise format to define configuration:
+The `YAML <https://yaml.org/spec>`_ syntax is the recommended
+format to define configuration:
 
-:download:`Download Sample Configuration<../sample_wsgidav.yaml>`.
+:download:`Download Sample Configuration<../../sample_wsgidav.yaml>`.
 
 .. literalinclude:: ../../sample_wsgidav.yaml
     :linenos:
@@ -449,8 +454,8 @@ concise format to define configuration:
 Sample ``wsgidav.json``
 -----------------------
 
-We can also use a `JSON <http://www.json.org>`_ file for configuration.
+We can also use a `JSON <https://www.json.org>`_ file for configuration.
 The structure is identical to the YAML format.
 
-See the :doc:`../sample_wsgidav.json` example.
+See the :doc:`./sample_wsgidav.json` example.
 (Note that the parser allows JavaScript-style comments)

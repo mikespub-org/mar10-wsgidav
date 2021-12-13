@@ -61,7 +61,7 @@ from wsgidav.fs_dav_provider import FilesystemProvider
 from wsgidav.http_authenticator import HTTPAuthenticator
 from wsgidav.lock_man.lock_manager import LockManager
 from wsgidav.lock_man.lock_storage import LockStorageDict
-from wsgidav.middleware import BaseMiddleware
+from wsgidav.mw.base_mw import BaseMiddleware
 from wsgidav.prop_man.property_manager import PropertyManager
 from wsgidav.util import (
     dynamic_import_class,
@@ -108,6 +108,7 @@ def _check_config(config):
         "mutableLiveProps": "mutable_live_props",
         "propsmanager": "property_manager",
         "re_encode_path_info": "hotfixes.re_encode_path_info",
+        "response_headers": "(see Cors middleware)",
         "trusted_auth_header": "http_authenticator.trusted_auth_header",
         "unquote_path_info": "hotfixes.unquote_path_info",
         "user_mapping": "simple_dc.user_mapping",
@@ -149,6 +150,8 @@ class WsgiDAVApp:
         hotfixes = config.get("hotfixes", {})
 
         self.re_encode_path_info = hotfixes.get("re_encode_path_info", True)
+        if type(self.re_encode_path_info) is not bool:
+            raise ValueError("re_encode_path_info must be bool (or omitted)")
         self.unquote_path_info = hotfixes.get("unquote_path_info", False)
 
         lock_storage = config.get("lock_storage")
@@ -225,6 +228,7 @@ class WsgiDAVApp:
                 app = app_class(self, self.application, config)
             elif type(mw) is dict:
                 # If a dict with one entry is passed, expect {class: ..., kwargs: ...}
+                expand = {"${application}": self.application}
                 app = dynamic_instantiate_class_from_opts(mw, expand=expand)
             elif inspect.isclass(mw):
                 # If a class is passed, assume BaseMiddleware (or compatible)
@@ -315,25 +319,21 @@ class WsgiDAVApp:
             #   <mount_path>: <folder_path>
             # We allow a simple string as 'provider'. In this case we interpret
             # it as a file system root folder that is published.
+            provider = util.fix_path(provider, self.config)
             provider = FilesystemProvider(provider, readonly=readonly)
+
         elif type(provider) in (dict,):
-            # if "provider" in provider:
             if "class" in provider:
                 # Syntax:
-                #   <mount_path>: {"class": <class_path>, <arg_name>: <val>, ...>}
+                #   <mount_path>: {"class": <class_path>, "args": <pos_args>, "kwargs": <named_args>}
                 expand = {"${application}": self}
                 provider = dynamic_instantiate_class_from_opts(provider, expand=expand)
-            #     # Syntax:
-            #     #   <mount_path>: {"provider": <class_path>, "args": <pos_args>, "kwargs": <named_args>}
-            #     prov_class = dynamic_import_class(provider["provider"])
-            #     provider = prov_class(
-            #         *provider.get("args", []), **provider.get("kwargs", {})
-            #     )
             elif "root" in provider:
                 # Syntax:
                 #   <mount_path>: {"root": <path>, "redaonly": <bool>}
                 provider = FilesystemProvider(
-                    provider["root"], readonly=bool(provider.get("readonly", False))
+                    util.fix_path(provider["root"], self.config),
+                    readonly=bool(provider.get("readonly", False)),
                 )
             else:
                 raise ValueError(
@@ -341,12 +341,12 @@ class WsgiDAVApp:
                 )
         elif type(provider) in (list, tuple):
             raise ValueError(
-                "Provider {}: tuple/list syntax is no longer supported".format(provider)
+                f"Provider {provider}: tuple/list syntax is no longer supported"
             )
             # provider = FilesystemProvider(provider[0], provider[1])
 
         if not isinstance(provider, DAVProvider):
-            raise ValueError("Invalid provider {}".format(provider))
+            raise ValueError(f"Invalid provider {provider}")
 
         provider.set_share_path(share)
         if self.mount_path:
@@ -397,16 +397,15 @@ class WsgiDAVApp:
 
         path = environ["PATH_INFO"]
 
-        # (#73) Failed on processing non-iso-8859-1 characters on Python 3
-        #
-        # Note: we encode using UTF-8 here (falling back to ISO-8859-1)!
-        # This seems to be wrong, since per PEP 3333 PATH_INFO is always ISO-8859-1 encoded
-        # (see https://www.python.org/dev/peps/pep-3333/#unicode-issues).
-        # But also seems to resolve errors when accessing resources with Chinese characters, for
-        # example.
-        # This is done by default for Python 3, but can be turned off in settings.
+        # WSGI always assumes iso-8859-1. Modern clients send UTF-8, so we may
+        # have to re-encode.
+        # See also:
+        # - Issue #73
+        # - https://www.python.org/dev/peps/pep-3333/#unicode-issues
+        # - https://bugs.python.org/issue16679#msg177450
+        # (The hotfixes.re_encode_path_info option is true by default.)
         if self.re_encode_path_info:
-            path = environ["PATH_INFO"] = util.wsgi_to_bytes(path).decode()
+            path = environ["PATH_INFO"] = util.re_encode_wsgi(path)
 
         # We optionally unquote PATH_INFO here, although this should already be
         # done by the server (#8, #228).
@@ -415,7 +414,7 @@ class WsgiDAVApp:
 
         # GC issue 22: Pylons sends root as u'/'
         if not util.is_str(path):
-            _logger.warning("Got non-native PATH_INFO: {!r}".format(path))
+            _logger.warning(f"Got non-native PATH_INFO: {path!r}")
             # path = path.encode("utf8")
             path = util.to_str(path)
 
@@ -477,7 +476,7 @@ class WsgiDAVApp:
             headerDict = {}
             for header, value in response_headers:
                 if header.lower() in headerDict:
-                    _logger.error("Duplicate header in response: {}".format(header))
+                    _logger.error(f"Duplicate header in response: {header}")
                 headerDict[header.lower()] = value
 
             # Check if we should close the connection after this request.
@@ -563,8 +562,8 @@ class WsgiDAVApp:
                     extra.append("elap={:.3f}sec".format(time.time() - start_time))
                 extra = ", ".join(extra)
 
-                #               This is the CherryPy format:
-                #                127.0.0.1 - - [08/Jul/2009:17:25:23] "GET /loginPrompt?redirect=/renderActionList%3Frelation%3Dpersonal%26key%3D%26filter%3DprivateSchedule&reason=0 HTTP/1.1" 200 1944 "http://127.0.0.1:8002/command?id=CMD_Schedule" "Mozilla/5.0 (Windows; U; Windows NT 6.0; de; rv:1.9.1) Gecko/20090624 Firefox/3.5"  # noqa
+                # This is the CherryPy format:
+                #   127.0.0.1 - - [08/Jul/2009:17:25:23] "GET /loginPrompt?redirect=/renderActionList%3Frelation%3Dpersonal%26key%3D%26filter%3DprivateSchedule&reason=0 HTTP/1.1" 200 1944 "http://127.0.0.1:8002/command?id=CMD_Schedule" "Mozilla/5.0 (Windows; U; Windows NT 6.0; de; rv:1.9.1) Gecko/20090624 Firefox/3.5"  # noqa
                 _logger.info(
                     '{addr} - {user} - [{time}] "{method} {path}" {extra} -> {status}'.format(
                         addr=environ.get("REMOTE_ADDR", ""),

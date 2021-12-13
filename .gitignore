@@ -38,3 +38,4 @@ Pipfile
 Pipfile.lock
 wsgidav_custom.yaml
 
+wsgidav_cors.yaml

@@ -14,7 +14,7 @@ from jinja2 import Environment, FileSystemLoader
 
 from wsgidav import __version__, util
 from wsgidav.dav_error import HTTP_MEDIATYPE_NOT_SUPPORTED, HTTP_OK, DAVError
-from wsgidav.middleware import BaseMiddleware
+from wsgidav.mw.base_mw import BaseMiddleware
 from wsgidav.util import safe_re_encode
 
 __docformat__ = "reStructuredText"
@@ -46,7 +46,7 @@ class WsgiDavDirBrowser(BaseMiddleware):
     """WSGI middleware that handles GET requests on collections to display directories."""
 
     def __init__(self, wsgidav_app, next_app, config):
-        super(WsgiDavDirBrowser, self).__init__(wsgidav_app, next_app, config)
+        super().__init__(wsgidav_app, next_app, config)
         self.dir_config = config.get("dir_browser", {})
 
         htdocs_path = self.dir_config.get("htdocs_path")

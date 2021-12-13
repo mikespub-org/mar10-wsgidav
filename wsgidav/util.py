@@ -50,6 +50,10 @@ PYTHON_VERSION = "{}.{}.{}".format(
 filesystemencoding = sys.getfilesystemencoding()
 
 
+class NO_DEFAULT:
+    """"""
+
+
 # ========================================================================
 # String tools
 # ========================================================================
@@ -86,19 +90,66 @@ def to_str(s, encoding="utf8"):
     return s
 
 
-def to_set(val, allow_none=False) -> set:
-    res = None
+def to_set(val, *, or_none=False, raise_error=False) -> set:
+    res = set()
     if type(val) is set:
         res = val
     elif type(val) is str:
         res = set(map(str.strip, val.split(",")))
     elif isinstance(val, (dict, list, tuple)):
         res = set(map(str, val))
-    elif val is None and allow_none:
+    elif val is None and or_none:
         res = None
-    else:
+    elif raise_error:
         raise TypeError(f"{val}, {type(val)}")
     return res
+
+
+def get_dict_value(d, key_path, default=NO_DEFAULT):
+    """Return the value of a nested dict using dot-notation path.
+
+    Args:
+        d (dict):
+        key_path (str):
+    Raises:
+        KeyError:
+        ValueError:
+        IndexError:
+
+    Examples::
+
+        ...
+
+    Todo:
+        * k[1] instead of k.[1]
+    """
+    if default is not NO_DEFAULT:
+        try:
+            return get_dict_value(d, key_path)
+        except (AttributeError, KeyError, ValueError, IndexError):
+            return default
+
+    seg_list = key_path.split(".")
+    seg = seg_list.pop(0)
+    value = d[seg]
+
+    while seg_list:
+        seg = seg_list.pop(0)
+        if isinstance(value, dict):
+            value = value[seg]
+        elif isinstance(value, (list, tuple)):
+            if not seg.startswith("[") or not seg.endswith("]"):
+                raise ValueError("Use `[INT]` syntax to address list items")
+            seg = seg[1:-1]
+            value = value[int(seg)]
+        else:
+            # raise ValueError("Segment '{}' cannot be nested".format(seg))
+            try:
+                value = getattr(value, seg)
+            except AttributeError:
+                raise  # ValueError("Segment '{}' cannot be nested".format(seg))
+
+    return value
 
 
 # password_patterns = []
@@ -190,9 +241,32 @@ def unicode_to_wsgi(u):
 
 
 def wsgi_to_bytes(s):
-    """Convert a native string to a WSGI / HTTP compatible byte string."""
-    # Taken from PEP3333
+    """Convert a native string to a WSGI / HTTP compatible byte string.
+
+    WSGI always assumes iso-8859-1 (PEP 3333).
+    https://bugs.python.org/issue16679#msg177450
+    """
     return s.encode("iso-8859-1")
+
+
+def re_encode_wsgi(s: str, *, encoding="utf-8", fallback=False) -> str:
+    """Convert a WSGI string to `str`, assuming the client used UTF-8.
+
+    WSGI always assumes iso-8859-1. Modern clients send UTF-8, so we have to
+    re-encode
+
+    https://www.python.org/dev/peps/pep-3333/#unicode-issues
+    https://bugs.python.org/issue16679#msg177450
+    """
+    try:
+        if type(s) is bytes:
+            # haven't seen this case, but may be possible according to PEP 3333?
+            return s.decode(encoding)
+        return s.encode("iso-8859-1").decode(encoding)
+    except UnicodeDecodeError:
+        if fallback:
+            return s
+        raise
 
 
 # ========================================================================
@@ -441,13 +515,13 @@ def dynamic_import_class(name):
     try:
         module = importlib.import_module(module_name)
     except Exception as e:
-        _logger.exception("Dynamic import of {!r} failed: {}".format(name, e))
+        _logger.error("Dynamic import of {!r} failed: {}".format(name, e))
         raise
     the_class = getattr(module, class_name)
     return the_class
 
 
-def dynamic_instantiate_class(class_name, options, *, expand=None):
+def dynamic_instantiate_class(class_name, options, *, expand=None, raise_error=True):
     """Import a class and instantiate with custom args.
 
     Equivalent of
@@ -481,11 +555,11 @@ def dynamic_instantiate_class(class_name, options, *, expand=None):
         {"args", "kwargs"},
         msg=f"Invalid class instantiation options for {class_name}",
     )
-    pos_args = options.get("args", [])
+    pos_args = options.get("args") or []
     if pos_args is not None and not isinstance(pos_args, (tuple, list)):
         raise ValueError(f"Expected list format for `args` option: {options}")
 
-    kwargs = options.get("kwargs", {})
+    kwargs = options.get("kwargs") or {}
     if kwargs is not None and not isinstance(kwargs, dict):
         raise ValueError(f"Expected dict format for `kwargs` option: {options}")
 
@@ -512,7 +586,11 @@ def dynamic_instantiate_class(class_name, options, *, expand=None):
             "Instantiate {}({}) => {}".format(class_name, ", ".join(disp_args), inst)
         )
     except Exception:
-        _logger.exception(f"ERROR: Instantiate {class_name}({options}) failed")
+        msg = f"Instantiate {class_name}({options}) failed"
+        if raise_error:
+            _logger.error(msg)
+            raise
+        _logger.exception(msg)
 
     return inst
 
@@ -700,6 +778,41 @@ def byte_number_string(
     return "{}{}{}".format(snum, magsuffix, bytesuffix)
 
 
+def fix_path(path, root, *, expand_vars=True, must_exist=True, allow_none=True):
+    """Convert path to absolute, expand and check.
+
+    Convert path to absolute if required, expand leading '~' as user home dir,
+    expand %VAR%, $Var, ...
+    """
+    org_path = path
+    if path in (None, ""):
+        if allow_none:
+            return None
+        raise ValueError(f"Invalid path {path!r}")
+
+    if not os.path.isabs(path):
+        if not root:
+            root = os.getcwd()
+        elif type(root) is dict:
+            # Evaluate path relative to the folder of the config file (if any)
+            config_file = root.get("_config_file")
+            if config_file:
+                root = os.path.dirname(config_file)
+            else:
+                root = os.getcwd()
+        path = os.path.abspath(os.path.join(root, path))
+
+    if expand_vars:
+        path = os.path.expandvars(os.path.expanduser(path))
+
+    if must_exist and not os.path.exists(path):
+        raise ValueError(f"Invalid path: {path!r}")
+
+    if org_path != path:
+        print(f"fix_path({org_path}) => {path}")
+    return path
+
+
 # ========================================================================
 # WSGI
 # ========================================================================
@@ -825,7 +938,7 @@ class SubAppStartResponse:
         self.__response_headers = []
         self.__exc_info = None
 
-        super(SubAppStartResponse, self).__init__()
+        super().__init__()
 
     @property
     def status(self):
@@ -931,6 +1044,19 @@ def make_complete_url(environ, local_uri=None):
     else:
         url += local_uri  # TODO: quote?
     return url
+
+
+def update_headers_in_place(target, new_items) -> None:
+    """Modify or append new headers to existing header list (in-place)."""
+    new_dict = {k.lower(): (k, v) for k, v in new_items}
+    for idx, (name, _value) in enumerate(target):
+        new_val = new_dict.pop(name.lower(), None)
+        if new_val is not None:
+            target[idx] = new_val
+    for value in new_dict.values():
+        target.append(value)
+
+    return  # in-place does not return a value
 
 
 # ========================================================================
@@ -1565,6 +1691,9 @@ _MIME_TYPES = {
     ".ogg": "audio/ogg",
     ".ogv": "video/ogg",
     ".webm": "video/webm",
+    # https://mailarchive.ietf.org/arch/msg/media-types/DA8UuKX2dyaVxWh-oevy-t3Vg9Q/
+    ".yml": "application/yaml",
+    ".yaml": "application/yaml",
 }
 
 

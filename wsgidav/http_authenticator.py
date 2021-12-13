@@ -88,7 +88,7 @@ from textwrap import dedent
 from wsgidav import util
 from wsgidav.dav_error import HTTP_NOT_FOUND, DAVError
 from wsgidav.dc.simple_dc import SimpleDomainController
-from wsgidav.middleware import BaseMiddleware
+from wsgidav.mw.base_mw import BaseMiddleware
 from wsgidav.util import calc_base64, calc_hexdigest, dynamic_import_class
 
 __docformat__ = "reStructuredText"
@@ -135,7 +135,7 @@ class HTTPAuthenticator(BaseMiddleware):
     )
 
     def __init__(self, wsgidav_app, next_app, config):
-        super(HTTPAuthenticator, self).__init__(wsgidav_app, next_app, config)
+        super().__init__(wsgidav_app, next_app, config)
         self._verbose = config.get("verbose", 3)
         self.config = config
 

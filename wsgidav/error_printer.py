@@ -18,7 +18,7 @@ from wsgidav.dav_error import (
     as_DAVError,
     get_http_status_string,
 )
-from wsgidav.middleware import BaseMiddleware
+from wsgidav.mw.base_mw import BaseMiddleware
 
 __docformat__ = "reStructuredText"
 
@@ -30,7 +30,7 @@ _logger = util.get_module_logger(__name__)
 # ========================================================================
 class ErrorPrinter(BaseMiddleware):
     def __init__(self, wsgidav_app, next_app, config):
-        super(ErrorPrinter, self).__init__(wsgidav_app, next_app, config)
+        super().__init__(wsgidav_app, next_app, config)
         self.err_config = config.get("error_printer", {})
 
     def is_disabled(self):

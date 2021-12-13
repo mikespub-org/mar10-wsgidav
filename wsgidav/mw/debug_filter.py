@@ -55,7 +55,7 @@ import sys
 import threading
 
 from wsgidav import util
-from wsgidav.middleware import BaseMiddleware
+from wsgidav.mw.base_mw import BaseMiddleware
 from wsgidav.util import safe_re_encode
 
 __docformat__ = "reStructuredText"
@@ -65,7 +65,7 @@ _logger = util.get_module_logger(__name__)
 
 class WsgiDavDebugFilter(BaseMiddleware):
     def __init__(self, wsgidav_app, next_app, config):
-        super(WsgiDavDebugFilter, self).__init__(wsgidav_app, next_app, config)
+        super().__init__(wsgidav_app, next_app, config)
         self._config = config
         log_opts = config.get("logging") or {}
         # self.out = sys.stdout

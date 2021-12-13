@@ -16,7 +16,7 @@
 #: used in production.
 #: All other servers must have been installed before, e.g. `pip install cheroot`.
 #: (The binary MSI distribution already includes 'cheroot'.)
-#: Default: "cheroot", use the `--server` command line option to change this.
+#: Default: 'cheroot', use the `--server` command line option to change this.
 
 server: cheroot
 
@@ -35,10 +35,6 @@ host: 0.0.0.0
 
 # Server port (default: 8080, use --port on command line)
 port: 8080
-
-#: Add custom response headers (list of header-name / header-value tuples):
-# response_headers:
-#    - ["Access-Control-Allow-Origin", "http://example.org"]
 
 # Transfer block size in bytes
 block_size: 8192
@@ -59,7 +55,6 @@ hotfixes:
     #: a persistent property manager. This setting is merely a work-around.
     #: NOTE: Works with Win10, can't work with Win7. Other versions untested.
     emulate_win32_lastmod: false
-
     #: Re-encode PATH_INFO using UTF-8 (falling back to ISO-8859-1).
     #: This seems to be wrong, since per PEP 3333 PATH_INFO is always ISO-8859-1
     #: encoded (see https://www.python.org/dev/peps/pep-3333/#unicode-issues).
@@ -70,6 +65,9 @@ hotfixes:
     #: Framework, so this setting should only be used to fix unexpected problems
     #: there (false fixes issue #8, true fixes issue #228).
     unquote_path_info: false
+    #: Hotfix for WinXP / Vista: accept 'OPTIONS /' for a 'OPTIONS *'
+    #: (default: false)
+    treat_root_options_as_asterisk: false
 
 
 # ----------------------------------------------------------------------------
@@ -79,12 +77,12 @@ hotfixes:
 #: not work in all scenarios.
 #: (Paths can be absolute or relative to this config file.)
 
-# ssl_certificate: "wsgidav/server/sample_bogo_server.crt"
-# ssl_private_key: "wsgidav/server/sample_bogo_server.key"
+# ssl_certificate: 'wsgidav/server/sample_bogo_server.crt'
+# ssl_private_key: 'wsgidav/server/sample_bogo_server.key'
 # ssl_certificate_chain: null
 
 #: Cheroot server supports 'builtin' and 'pyopenssl' (default: 'builtin')
-# ssl_adapter: "pyopenssl"
+# ssl_adapter: 'pyopenssl'
 
 # ----------------------------------------------------------------------------
 
@@ -92,7 +90,8 @@ hotfixes:
 #: See here for an example how to add custom middlewares:
 #:   https://wsgidav.readthedocs.io/en/latest/user_guide_configure.html#middleware-stack
 middleware_stack:
-    - wsgidav.debug_filter.WsgiDavDebugFilter
+    - wsgidav.mw.cors.Cors
+    # - wsgidav.mw.debug_filter.WsgiDavDebugFilter
     - wsgidav.error_printer.ErrorPrinter
     - wsgidav.http_authenticator.HTTPAuthenticator
     - wsgidav.dir_browser.WsgiDavDirBrowser
@@ -114,20 +113,30 @@ mount_path: null
 #: The following syntax variants are supported to use FilesystemProvider:
 #:     <mount_path>: <folder_path>
 #: or
-#:     <mount_path>: { "root": <folder_path>, "readonly": <bool> }
+#:     <mount_path>: { 'root': <folder_path>, 'readonly': <bool> }
 #: or instantiate an arbitrary custom class:
-#:     <mount_path>: { "class": <class_path>, args: [<arg>, ...], kwargs: {<arg>: <val>, ...} }
+#:     <mount_path>: { 'class': <class_path>, args: [<arg>, ...], kwargs: {<arg>: <val>, ...} }
 
 provider_mapping:
-    "/": "/path/to/share1"
-    "/pub":
+    '/': '/path/to/share1'
+    '/pub':
         root: '/path/to/share2'
         readonly: true
-    "/share3":
+    '/share3':
         class: path.to.CustomDAVProviderClass
         kwargs:
             path: '/path/to/share3'
             another_arg: 42
+    # Example: 
+    #     make sure that a `/favicon.ico` URL is resolved, even if a `*.html`
+    #     or `*.txt` resource file was opened using the DirBrowser
+    # '/':
+    #     class: 'wsgidav.fs_dav_provider.FilesystemProvider'
+    #     kwargs:
+    #         root_folder: 'tests/fixtures/share'
+    #         # readonly: true
+    #         shadow:
+    #             '/favicon.ico': 'file_path/to/favicon.ico'
 
 
 # ==============================================================================
@@ -140,7 +149,7 @@ http_authenticator:
     #: true (default digest) or false (default basic)
     default_to_digest: true
     #: Header field that will be accepted as authorized user.
-    #: Including quotes, for example: trusted_auth_header = "REMOTE_USER"
+    #: Including quotes, for example: trusted_auth_header = 'REMOTE_USER'
     trusted_auth_header: null
     #: Domain controller that is used to resolve realms and authorization.
     #: Default null: which uses SimpleDomainController and the
@@ -159,15 +168,15 @@ simple_dc:
     # These routes must match the provider mapping.
     # NOTE: Provider routes without a matching entry here, are inaccessible.
     user_mapping:
-        "*":  # default (used for all shares that are not explicitly listed)
-            "user1":
-                password: "abc123"
+        '*':  # default (used for all shares that are not explicitly listed)
+            'user1':
+                password: 'abc123'
                 # Optional: passed to downstream middleware as environ["wsgidav.auth.roles"]
-                roles: ["editor"]
-            "user2":
-                password: "def456"
-                password: "qwerty"
-        "/pub": true  # Pass true to allow anonymous access
+                roles: ['editor']
+            'user2':
+                password: 'def456'
+                password: 'qwerty'
+        '/pub': true  # Pass true to allow anonymous access
 
 # Additional options for NTDomainController only:
 nt_dc:
@@ -176,9 +185,43 @@ nt_dc:
 
 # Additional options for PAMDomainController only:
 pam_dc:
-    service: "login"
-    encoding: "utf-8"
+    service: 'login'
+    encoding: 'utf-8'
     resetcreds: true
+
+
+# ----------------------------------------------------------------------------
+# CORS
+# (Requires `wsgidav.mw.cors.Cors`, which is enabled by default.)
+cors:
+    #: List of allowed Origins or '*'
+    #: Default: false, i.e. prevent CORS
+    allow_origin: null
+    # allow_origin: '*'
+    # allow_origin:
+    #   - 'https://example.com'
+    #   - 'https://localhost:8081'
+
+    #: List or comma-separated string of allowed methods (returned as
+    #: response to preflight request)
+    allow_methods:
+    # allow_methods: POST,HEAD
+    #: List or comma-separated string of allowed header names (returned as
+    #: response to preflight request)
+    allow_headers:
+    #   - X-PINGOTHER
+    #: List or comma-separated string of allowed headers that JavaScript in
+    #: browsers is allowed to access.
+    expose_headers:
+    #: Set to true to allow responses on requests with credentials flag set
+    allow_credentials: false
+    #: Time in seconds for how long the response to the preflight request can
+    #: be cached (default: 5)
+    max_age: 600
+    #: Add custom response headers (dict of header-name -> header-value items)
+    #: (This is not related to CORS or required to implement CORS functionality)
+    add_always:
+    #    'X-Foo-Header: 'qux'
 
 # ----------------------------------------------------------------------------
 # Property Manager
@@ -208,7 +251,8 @@ property_manager: null
 mutable_live_props:
     # Enable to allow clients to use e.g. the touch or cp / rsync commands with the
     # preserve-timestamp flags in a mounted DAV share (may be RFC4918 incompliant)
-    - "{DAV:}getlastmodified"
+    - '{DAV:}getlastmodified'
+
 
 # ----------------------------------------------------------------------------
 # Lock Manager Storage
@@ -231,7 +275,6 @@ mutable_live_props:
 lock_storage: true
 
 
-
 # ==============================================================================
 # DEBUGGING
 
@@ -241,22 +284,22 @@ verbose: 3
 logging:
     #: Set logging output format
     #: (see https://docs.python.org/3/library/logging.html#logging.Formatter)
-    logger_date_format: "%H:%M:%S"
-    logger_format: "%(asctime)s.%(msecs)03d - %(levelname)-8s: %(message)s"
+    logger_date_format: '%H:%M:%S'
+    logger_format: '%(asctime)s.%(msecs)03d - %(levelname)-8s: %(message)s'
     # Example: Add date,thread id, and logger name:
-    # logger_date_format: ""%Y-%m-%d %H:%M:%S"
-    # logger_format: "%(asctime)s.%(msecs)03d - <%(thread)05d> %(name)-27s %(levelname)-8s: %(message)s"
+    # logger_date_format: '%Y-%m-%d %H:%M:%S'
+    # logger_format: '%(asctime)s.%(msecs)03d - <%(thread)05d> %(name)-27s %(levelname)-8s: %(message)s'
 
     #: Enable specific module loggers
-    #: E.g. ["lock_manager", "property_manager", "http_authenticator", ...]
-    # enable_loggers: ["http_authenticator", ]
+    #: E.g. ['lock_manager', 'property_manager', 'http_authenticator', ...]
+    # enable_loggers: ['http_authenticator', ]
 
     # Enable max. logging for certain http methods
-    # E.g. ["COPY", "DELETE", "GET", "HEAD", "LOCK", "MOVE", "OPTIONS", "PROPFIND", "PROPPATCH", "PUT", "UNLOCK"]
+    # E.g. ['COPY', 'DELETE', 'GET', 'HEAD', 'LOCK', 'MOVE', 'OPTIONS', 'PROPFIND', 'PROPPATCH', 'PUT', 'UNLOCK']
     debug_methods: []
 
     # Enable max. logging during  litmus suite tests that contain certain strings
-    # E.g. ["lock_excl", "notowner_modify", "fail_cond_put_unlocked", ...]
+    # E.g. ['lock_excl', 'notowner_modify', 'fail_cond_put_unlocked', ...]
     debug_litmus: []
 
 
@@ -267,9 +310,9 @@ dir_browser:
     enable: true
     #: List of fnmatch patterns that will be hidden in the directory listing
     ignore:
-        - ".DS_Store"  # macOS folder meta data
-        - "Thumbs.db"  # Windows image previews
-        - "._*"  # macOS hidden data files
+        - '.DS_Store'  # macOS folder meta data
+        - 'Thumbs.db'  # Windows image previews
+        - '._*'  # macOS hidden data files
     #: Display WsgiDAV icon in header
     icon: true
     #: Raw HTML code, appended as footer (true: use a default trailer)

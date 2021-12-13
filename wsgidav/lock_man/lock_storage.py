@@ -28,7 +28,8 @@ from wsgidav.rw_lock import ReadWriteLock
 
 __docformat__ = "reStructuredText"
 
-_logger = util.get_module_logger(__name__)
+# _logger = util.get_module_logger(__name__)
+_logger = util.get_module_logger("wsgidav.lock_man")
 
 # TODO: comment's from Ian Bicking (2005)
 # @@: Use of shelve means this is only really useful in a threaded environment.
@@ -348,7 +349,7 @@ class LockStorageShelve(LockStorageDict):
     """
 
     def __init__(self, storage_path):
-        super(LockStorageShelve, self).__init__()
+        super().__init__()
         self._storage_path = os.path.abspath(storage_path)
 
     def __repr__(self):

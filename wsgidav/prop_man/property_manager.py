@@ -38,7 +38,7 @@ from wsgidav.rw_lock import ReadWriteLock
 
 __docformat__ = "reStructuredText"
 
-_logger = util.get_module_logger(__name__)
+_logger = util.get_module_logger("wsgidav.prop_man")
 
 
 # ========================================================================
@@ -281,7 +281,7 @@ class ShelvePropertyManager(PropertyManager):
 
     def __init__(self, storage_path):
         self._storage_path = os.path.abspath(storage_path)
-        super(ShelvePropertyManager, self).__init__()
+        super().__init__()
 
     def __repr__(self):
         return "ShelvePropertyManager({})".format(self._storage_path)

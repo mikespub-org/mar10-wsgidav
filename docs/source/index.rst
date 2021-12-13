@@ -37,7 +37,7 @@ Main Features
 - Passes the `litmus test suite <http://www.webdav.org/neon/litmus/>`_.
 - Open architecture allows to :doc:`user_guide_custom_providers`
   (i.e. storage, locking, authentication, virtual file systems, ...).
-- WsgiDAV is a `refactored version of PyFileServer <https://github.com/mar10/wsgidav/blob/master/docs/changelog04.md>`_
+- WsgiDAV is a `refactored version of PyFileServer <https://github.com/mar10/wsgidav/blob/master/docs/source/changelog04.md>`_
   written by Ho Chun Wei.
 
 
@@ -96,9 +96,9 @@ WsgiDAV comes with a web interface and was tested with different clients
 
 .. |logo| image:: logo.png
 
-.. |travis_badge| image:: https://travis-ci.org/mar10/wsgidav.svg?branch=master
+.. |travis_badge| image:: https://travis-ci.com/mar10/wsgidav.svg?branch=master
    :alt: Build Status
-   :target: https://travis-ci.org/mar10/wsgidav
+   :target: https://travis-ci.com/mar10/wsgidav
 
 .. |pypi_badge| image:: https://img.shields.io/pypi/v/wsgidav.svg
    :alt: PyPI Version
