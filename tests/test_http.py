@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# (c) 2009-2021 Martin Wendt and contributors; see WsgiDAV https://github.com/mar10/wsgidav
+# (c) 2009-2022 Martin Wendt and contributors; see WsgiDAV https://github.com/mar10/wsgidav
 # Licensed under the MIT license:
 # http://www.opensource.org/licenses/mit-license.php
 """
@@ -48,9 +48,11 @@ class DirbrowserTest(unittest.TestCase):
         res = requests.get(self.url, auth=self.auth)
         assert res.status_code == 200
         assert '<meta name="generator" content="WsgiDAV/' in res.text
-        assert res.encoding == "ISO-8859-1"
+        assert res.encoding == "utf-8"
+        # assert res.encoding == "ISO-8859-1"
         assert "WsgiDAV" in res.headers["Server"]
-        assert res.headers["Content-Type"] == "text/html"
+        assert res.headers["Content-Type"] == "text/html; charset=utf-8"
+        # assert res.headers["Content-Type"] == "text/html"
 
         res = requests.get(self.url + "?davmount", auth=self.auth)
         assert res.status_code == 200

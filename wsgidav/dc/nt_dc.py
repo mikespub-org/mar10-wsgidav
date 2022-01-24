@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# (c) 2009-2021 Martin Wendt and contributors; see WsgiDAV https://github.com/mar10/wsgidav
+# (c) 2009-2022 Martin Wendt and contributors; see WsgiDAV https://github.com/mar10/wsgidav
 # Original PyFileServer (c) 2005 Ho Chun Wei.
 # Licensed under the MIT license: http://www.opensource.org/licenses/mit-license.php
 """
@@ -89,8 +89,8 @@ _logger = util.get_module_logger(__name__)
 class NTDomainController(BaseDomainController):
     def __init__(self, wsgidav_app, config):
         super().__init__(wsgidav_app, config)
-        # auth_conf = config["http_authenticator"]
-        dc_conf = config.get("nt_dc", {})
+
+        dc_conf = util.get_dict_value(config, "nt_dc", as_dict=True)
 
         self.preset_domain = dc_conf.get("preset_domain")
         self.preset_server = dc_conf.get("preset_server")

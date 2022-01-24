@@ -32,8 +32,7 @@ coverage.xml
 npm-debug.log
 pip-wheel-metadata/
 wsgidav.yaml
-wsgidav_2x.yaml
-<<<<<<< HEAD
+wsgidav*.yaml
 Pipfile
 Pipfile.lock
 wsgidav_custom.yaml

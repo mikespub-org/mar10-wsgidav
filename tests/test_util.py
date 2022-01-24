@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# (c) 2009-2021 Martin Wendt and contributors; see WsgiDAV https://github.com/mar10/wsgidav
+# (c) 2009-2022 Martin Wendt and contributors; see WsgiDAV https://github.com/mar10/wsgidav
 # Licensed under the MIT license:
 # http://www.opensource.org/licenses/mit-license.php
 """Unit tests for wsgidav.util"""
@@ -123,7 +123,9 @@ class BasicTest(unittest.TestCase):
 
         self.assertRaises(ValueError, fix_path, "a/b", "/root/x")
         if sys.platform == "win32":
-            assert fix_path("a/b", "/root/x", must_exist=False) == r"C:\root\x\a\b"
+            assert (
+                fix_path("a/b", "/root/x", must_exist=False).lower() == r"c:\root\x\a\b"
+            )
         else:
             assert fix_path("a/b", "/root/x", must_exist=False) == "/root/x/a/b"
         assert fix_path("/a/b", "/root/x", must_exist=False) == "/a/b"
@@ -172,6 +174,13 @@ class BasicTest(unittest.TestCase):
         assert get_dict_value(d, "d.t.[1]") == 2
         self.assertRaises(IndexError, get_dict_value, d, "d.t.[2]")
         self.assertRaises(KeyError, get_dict_value, d, "d.q")
+
+        d = {"a": None, "b": {}, "c": False}
+        assert get_dict_value(d, "a", as_dict=True) == {}
+        assert get_dict_value(d, "b", as_dict=True) == {}
+        assert get_dict_value(d, "c", as_dict=True) is False
+        assert get_dict_value(d, "x", as_dict=True) == {}
+        self.assertRaises(KeyError, get_dict_value, d, "x", as_dict=False)
 
 
 class LoggerTest(unittest.TestCase):

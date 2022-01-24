@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# (c) 2009-2021 Martin Wendt and contributors; see WsgiDAV https://github.com/mar10/wsgidav
+# (c) 2009-2022 Martin Wendt and contributors; see WsgiDAV https://github.com/mar10/wsgidav
 # Licensed under the MIT license:
 # http://www.opensource.org/licenses/mit-license.php
 """
@@ -47,7 +47,8 @@ class WsgiDavDirBrowser(BaseMiddleware):
 
     def __init__(self, wsgidav_app, next_app, config):
         super().__init__(wsgidav_app, next_app, config)
-        self.dir_config = config.get("dir_browser", {})
+
+        self.dir_config = util.get_dict_value(config, "dir_browser", as_dict=True)
 
         htdocs_path = self.dir_config.get("htdocs_path")
         if htdocs_path:
@@ -126,7 +127,7 @@ class WsgiDavDirBrowser(BaseMiddleware):
             start_response(
                 "200 OK",
                 [
-                    ("Content-Type", "text/html"),
+                    ("Content-Type", "text/html; charset=utf-8"),
                     ("Content-Length", str(len(res))),
                     ("Cache-Control", "private"),
                     ("Date", util.get_rfc1123_time()),

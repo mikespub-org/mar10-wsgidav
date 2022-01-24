@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# (c) 2009-2021 Martin Wendt and contributors; see WsgiDAV https://github.com/mar10/wsgidav
+# (c) 2009-2022 Martin Wendt and contributors; see WsgiDAV https://github.com/mar10/wsgidav
 # Original PyFileServer (c) 2005 Ho Chun Wei.
 # Licensed under the MIT license:
 # http://www.opensource.org/licenses/mit-license.php
@@ -222,7 +222,10 @@ class DAVError(Exception):
         """Return a tuple (content-type, response page)."""
         # If it has pre- or post-condition: return as XML response
         if self.err_condition:
-            return ("application/xml", util.to_bytes(self.err_condition.as_string()))
+            return (
+                "application/xml; charset=utf-8",
+                util.to_bytes(self.err_condition.as_string()),
+            )
 
         # Else return as HTML
         status = get_http_status_string(self)
@@ -233,7 +236,7 @@ class DAVError(Exception):
         )
         html.append("<html><head>")
         html.append(
-            "  <meta http-equiv='Content-Type' content='text/html; charset=UTF-8'>"
+            "  <meta http-equiv='Content-Type' content='text/html; charset=utf-8'>"
         )
         html.append("  <title>{}</title>".format(status))
         html.append("</head><body>")
@@ -247,7 +250,7 @@ class DAVError(Exception):
         )
         html.append("</body></html>")
         html = "\n".join(html)
-        return ("text/html", util.to_bytes(html))
+        return ("text/html; charset=utf-8", util.to_bytes(html))
 
 
 def get_http_status_code(v):

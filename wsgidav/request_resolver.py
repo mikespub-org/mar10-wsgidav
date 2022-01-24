@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# (c) 2009-2021 Martin Wendt and contributors; see WsgiDAV https://github.com/mar10/wsgidav
+# (c) 2009-2022 Martin Wendt and contributors; see WsgiDAV https://github.com/mar10/wsgidav
 # Original PyFileServer (c) 2005 Ho Chun Wei.
 # Licensed under the MIT license:
 # http://www.opensource.org/licenses/mit-license.php
@@ -167,7 +167,7 @@ class RequestResolver(BaseMiddleware):
 
         provider = environ["wsgidav.provider"]
         config = environ["wsgidav.config"]
-        hotfixes = config.get("hotfixes", {})
+        hotfixes = util.get_dict_value(config, "hotfixes", as_dict=True)
 
         is_asterisk_options = environ["REQUEST_METHOD"] == "OPTIONS" and path == "*"
         if path == "/":
@@ -199,7 +199,7 @@ class RequestResolver(BaseMiddleware):
                 dav_compliance_level = "1"
 
             headers = [
-                ("Content-Type", "text/html"),
+                ("Content-Type", "text/html; charset=utf-8"),
                 ("Content-Length", "0"),
                 ("DAV", dav_compliance_level),
                 ("Date", util.get_rfc1123_time()),

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# (c) 2009-2021 Martin Wendt and contributors; see WsgiDAV https://github.com/mar10/wsgidav
+# (c) 2009-2022 Martin Wendt and contributors; see WsgiDAV https://github.com/mar10/wsgidav
 # Licensed under the MIT license:
 # http://www.opensource.org/licenses/mit-license.php
 """Unit test for lock_manager.py"""
@@ -11,7 +11,11 @@ from time import sleep
 
 from wsgidav.dav_error import DAVError
 from wsgidav.lock_man import lock_manager, lock_storage
-from wsgidav.lock_man.lock_storage_redis import LockStorageRedis
+
+try:
+    from wsgidav.lock_man.lock_storage_redis import LockStorageRedis
+except ImportError:
+    LockStorageRedis = None
 
 # ========================================================================
 # BasicTest
@@ -397,6 +401,8 @@ class RedisTest(BasicTest):
     _redis_connect_failed = None
 
     def setUp(self):
+        if LockStorageRedis is None:
+            raise unittest.SkipTest("Test redis installed")
         if RedisTest._redis_connect_failed:
             raise unittest.SkipTest("Test requires a running redis instance (again)")
 

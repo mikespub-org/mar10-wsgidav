@@ -65,22 +65,12 @@ except IOError:
 
 # These dependencies are for plain WsgiDAV:
 install_requires = [
-    # "defusedxml",
-    # "jinja2",  # NOTE: we must use lower-case name, otherwise import will fail
-    # "json5",
-    # "yaml",  # NOTE: must import 'yaml' (but dependency is named 'PyYAML')
-    # Used by wsgidav.dc.nt_dc:
-    # "win32net",
-    # "win32netcon",
-    # "win32security",
 ]
 # ... The Windows MSI Setup should include lxml and CherryPy
 install_requires.extend(
     [
         "cheroot",
-        # "cheroot.ssl.builtin",
         "lxml",
-        # "wsgidav.dc.nt_dc",
     ]
 )
 setup_requires = install_requires
@@ -94,7 +84,7 @@ executables = [
         target_name="wsgidav.exe",
         icon="docs/source/logo.ico",
         shortcut_name="WsgiDAV",
-        copyright="(c) 2009-2021 Martin Wendt",
+        copyright="(c) 2009-2022 Martin Wendt",
         # trademarks="...",
     )
 ]
@@ -105,13 +95,14 @@ build_exe_options = {
     # "include_files": [],
     "packages": [
         "asyncio",  # https://stackoverflow.com/a/41881598/19166
+        "cheroot",
         "wsgidav.dir_browser",
         "wsgidav.dc.nt_dc",
     ],
     "excludes": [
         "tkinter",
     ],
-    "constants": "BUILD_COPYRIGHT='(c) 2009-2021 Martin Wendt'",
+    "constants": "BUILD_COPYRIGHT='(c) 2009-2022 Martin Wendt'",
     # "init_script": "Console",
     "include_msvcr": True,
 }

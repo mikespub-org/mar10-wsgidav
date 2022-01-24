@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# (c) 2009-2021 Martin Wendt and contributors; see WsgiDAV https://github.com/mar10/wsgidav
+# (c) 2009-2022 Martin Wendt and contributors; see WsgiDAV https://github.com/mar10/wsgidav
 # Original PyFileServer (c) 2005 Ho Chun Wei.
 # Licensed under the MIT license:
 # http://www.opensource.org/licenses/mit-license.php
@@ -73,7 +73,8 @@ _logger = util.get_module_logger(__name__)
 class SimpleDomainController(BaseDomainController):
     def __init__(self, wsgidav_app, config):
         super().__init__(wsgidav_app, config)
-        dc_conf = config.get("simple_dc", {})
+
+        dc_conf = util.get_dict_value(config, "simple_dc", as_dict=True)
 
         self.user_map = dc_conf.get("user_mapping")
         if self.user_map is None:

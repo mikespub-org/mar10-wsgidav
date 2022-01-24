@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# (c) 2009-2021 Martin Wendt and contributors; see WsgiDAV https://github.com/mar10/wsgidav
+# (c) 2009-2022 Martin Wendt and contributors; see WsgiDAV https://github.com/mar10/wsgidav
 # Licensed under the MIT license: http://www.opensource.org/licenses/mit-license.php
 """
 Implementation of a domain controller that allows users to authenticate against
@@ -24,8 +24,7 @@ class PAMDomainController(BaseDomainController):
 
         self.pam = pam.pam()
 
-        # auth_conf = config["http_authenticator"]
-        dc_conf = config.get("pam_dc", {})
+        dc_conf = util.get_dict_value(config, "pam_dc", as_dict=True)
 
         self.pam_service = dc_conf.get("service", "login")
         self.pam_encoding = dc_conf.get("encoding", "utf-8")
