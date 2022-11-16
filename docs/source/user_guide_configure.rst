@@ -232,16 +232,16 @@ editing depending on authentication.
 
 Three syntax variants are supported:
 
-1. ``<mount_path>: <folder_path>``:
+1. ``<share_path>: <folder_path>``:
    use ``FilesystemProvider(folder_path)``
-2. ``<mount_path>: { "root": <folder_path>, "readonly": <bool> }``:
+2. ``<share_path>: { "root": <folder_path>, "readonly": <bool> }``:
    use ``FilesystemProvider(folder_path, readonly)``
-3. ``<mount_path>: { "class": <class_path>, args: [arg, ...], kwargs: {"arg1": val1, "arg2": val2, ... }}``
+3. ``<share_path>: { "class": <class_path>, args: [arg, ...], kwargs: {"arg1": val1, "arg2": val2, ... }}``
    Instantiate a custom class (derrived from ``DAVProvider``) using named
    kwargs.
 
 ..
-   1. ``<mount_path>: { "provider": <class_path>, "args:" ..., "kwargs": ... }``
+   1. ``<share_path>: { "provider": <class_path>, "args:" ..., "kwargs": ... }``
 
 For example::
 
@@ -439,6 +439,56 @@ Note that this allows the custom controller to read the configuration dict
 and look for a custom section there.
 
 
+Cors Middleware
+---------------
+
+The :class:`wsgidav.mw.cors.Cors` Respond to CORS preflight OPTIONS request and 
+inject CORS headers. 
+This middleware is available by default, but needs configuration to be enabled.
+A minimal (yet )::
+
+    cors:
+        #: List of allowed Origins or '*'
+        #: Default: false, i.e. prevent CORS
+        # allow_origin: null
+        allow_origin: '*'
+
+This may be too unspecific though. 
+See `Cross-Origin Resource Sharing (CORS) <https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS>`_ .
+
+Annotated YAML configuration::
+
+    cors:
+        #: List of allowed Origins or '*'
+        #: Default: false, i.e. prevent CORS
+        allow_origin: null
+        # allow_origin: '*'
+        # allow_origin:
+        #   - 'https://example.com'
+        #   - 'https://localhost:8081'
+
+        #: List or comma-separated string of allowed methods (returned as
+        #: response to preflight request)
+        allow_methods:
+        # allow_methods: POST,HEAD
+        #: List or comma-separated string of allowed header names (returned as
+        #: response to preflight request)
+        allow_headers:
+        #   - X-PINGOTHER
+        #: List or comma-separated string of allowed headers that JavaScript in
+        #: browsers is allowed to access.
+        expose_headers:
+        #: Set to true to allow responses on requests with credentials flag set
+        allow_credentials: false
+        #: Time in seconds for how long the response to the preflight request can
+        #: be cached (default: 5)
+        max_age: 600
+        #: Add custom response headers (dict of header-name -> header-value items)
+        #: (This is not related to CORS or required to implement CORS functionality)
+        add_always:
+        #    'X-Foo-Header: 'qux'
+
+
 Sample ``wsgidav.yaml``
 -----------------------
 
@@ -459,3 +509,46 @@ The structure is identical to the YAML format.
 
 See the :doc:`./sample_wsgidav.json` example.
 (Note that the parser allows JavaScript-style comments)
+
+
+Configuration Tips
+------------------
+
+Running Behind a Reverse Proxy
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+If WsgiDAV is running behind a reverse proxy, ... 
+
+For example, when `nginx <https://docs.nginx.com/>`_ is used to expose the
+local WsgiDAV share ``http://127.0.0.1:8080/public_drive`` as
+``http://example.com/drive``, the configuration files may look like this:
+
+``wsgidav.yaml`` ::
+
+    host: 127.0.0.1
+    port: 8080
+    mount_path: "/drive"
+    provider_mapping:
+        "/public_drive":  # Exposed as http://HOST/drive by nginx reverse proxy
+            root: "fixtures/share"
+
+``nginx.conf``::
+
+    http {
+        ...
+        server {
+            listen       80;
+            server_name  example.com;
+            ...
+            location /drive/ {
+                proxy_pass http://127.0.0.1:8080/public_drive/;
+                proxy_set_header X-Forwarded-Proto $scheme;
+                proxy_set_header X-Forwarded-Host $host;
+            }
+            # If dir browser is enabled for WsgiDAV:
+            location /drive/:dir_browser/ {
+                proxy_pass http://127.0.0.1:8080/:dir_browser/;
+            }
+
+See the `nginx docs <https://docs.nginx.com/nginx/admin-guide/web-server/reverse-proxy/>`_
+for details.

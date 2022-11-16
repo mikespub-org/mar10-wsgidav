@@ -38,3 +38,5 @@ Pipfile.lock
 wsgidav_custom.yaml
 
 wsgidav_cors.yaml
+wsgidav-props.shelve.dat
+wsgidav-props.shelve.dir
