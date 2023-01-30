@@ -17,7 +17,7 @@ setuptools~=40.2
 sphinx~=4.3
 sphinx_rtd_theme~=1.0.0
 stressor
-tox~=3.13
+tox~=4.4
 twine~=1.11
 WebTest~=2.0
 wheel
