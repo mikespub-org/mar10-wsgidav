@@ -1,8 +1,14 @@
 # Changelog
 
-## 4.1.1 / Unreleased
+## 4.2.0 / Unreleased
+
+- #277 Add quota-used-bytes and quota-available-bytes (RFC4331) (@NewbieOrange)
+- Build MSI installer with Python 3.11, cheroot 9.0, cx_Freeze 6.3 (may fix #278)
+- Official support for Python 3.11
+- Update to black 22.12
 
 ## 4.1.0 / 2022-11-11
+
 - #246 Add dir_browser/htdocs folder setup.cfg (for install with `pip install  .`)
 - #265 Fix PAM not threadsafe
 - #268 Use relative paths to support reverse proxies
@@ -12,6 +18,8 @@
   Also use relative paths in directory listings in order to improve behavior
   when running behind a reverse proxy.
 - #183 Fix MOVE for reverse proxies (experimental)
+- Resolve security advisory [CVE-2022-41905](https://github.com/mar10/wsgidav/security/advisories/GHSA-xx6g-jj35-pxjv)
+  Thanks @brunnjf (Jon Brunn)
 
 ## 4.0.2 / 2022-08-01
 
@@ -47,9 +55,9 @@
 - hotfixes.re_encode_path_info is true by default (null evaluates to false now!)
 - Add uvicorn server support to CLI
 - `lock_storage`, `property_manager`, `provider_mapping`
-   can now be configured in the YAML file to use custom implementations using
-   this syntax:
-   `{ "class": <class_path>, "args": [<arg>, ...], "kwargs": {"<arg_name>": <val>, ... } }`
+  can now be configured in the YAML file to use custom implementations using
+  this syntax:
+  `{ "class": <class_path>, "args": [<arg>, ...], "kwargs": {"<arg_name>": <val>, ... } }`
 
 **Other changes**
 
