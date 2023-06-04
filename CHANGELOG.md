@@ -1,9 +1,26 @@
 # Changelog
 
-## 4.2.1 / Unreleased
+## 4.3.0 / Unreleased
+
+- BREAKING:
+  - See option `fs_dav_provider.follow_symlinks` below.
 - Install pam_dc dependencies using extra syntax: `pip install wsgidav[pam]`
 - #281 Requesting range off end of file does not return 416 status code
 - #282 Hotfix PUT request without content-length (fix for Finder on MacOS Ventura)
+- Add `logging.enable` option to activate the 'wsgidav' logger when this package
+  is used as a library. This replaces an explicit call to `utils.init_logging()`.
+  When running as CLI, this option is on by default.
+- Add `fs_dav_provider` section to options.
+- Add `fs_dav_provider.follow_symlinks` option to enable symlinks (default: false)<br>
+  *follow_symlinks* is false by default, since 
+  [symlinks may be a security risk](https://serverfault.com/questions/244592/followsymlinks-on-apache-why-is-it-a-security-risk).<br>
+  File resources that are symlinks are still enumerated and listed by the 
+  directory browser. However trying to GET content will raise '403 Forbidden'
+  Pass *follow_symlinks=True* to the FilesystemProvider constructor or yaml configration
+  to restore the old behavior.
+- Add `fs_dav_provider.shadow_map`, which can be used to blend in a favicon
+  when context is opened inline (#230)
+- Remove (unused) interface definitions
 
 ## 4.2.0 / 2023-02-18
 
@@ -29,7 +46,7 @@
 
 ## 4.0.2 / 2022-08-01
 
-- #245: Add charset utf-8 to Content-Type header
+- #245 Add charset utf-8 to Content-Type header
 - #246 Add dir_browser/htdocs folder to sdist (.tar.gz)
 - #248 Provider does not support set_last_modified" error
 - #251 Fix removing locks in recursive mode
