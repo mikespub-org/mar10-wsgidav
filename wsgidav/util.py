@@ -25,6 +25,7 @@ from pprint import pformat
 from typing import Iterable, Optional, Tuple
 from urllib.parse import quote
 
+from wsgidav import __version__
 from wsgidav.dav_error import (
     HTTP_BAD_REQUEST,
     HTTP_CREATED,
@@ -45,11 +46,18 @@ __docformat__ = "reStructuredText"
 BASE_LOGGER_NAME = "wsgidav"
 _logger = logging.getLogger(BASE_LOGGER_NAME)
 
-PYTHON_VERSION = "{}.{}.{}".format(
-    sys.version_info[0], sys.version_info[1], sys.version_info[2]
-)
+#: Currently used Python version as string
+PYTHON_VERSION = ".".join([str(s) for s in sys.version_info[:3]])
 
 filesystemencoding = sys.getfilesystemencoding()
+
+#: Project name and version presented to the clients
+#: This is reset to ``"WsgiDAV"`` if ``suppress_version_info`` is set in the
+#: configuration.
+public_wsgidav_info = f"WsgiDAV/{__version__}"
+#: This is reset to ``"Python/3"`` if ``suppress_version_info`` is set in the
+#: configuration.
+public_python_info = f"Python/{PYTHON_VERSION}"
 
 
 class NO_DEFAULT:
@@ -382,7 +390,7 @@ def init_logging(config):
     The base logger is filtered by the `verbose` configuration option.
     Log entries will have a time stamp and thread id.
 
-    **Note:** init_logging() is automatically calle if an application adds
+    **Note:** init_logging() is automatically called if an application adds
     ``"logging": { "enable": true }`` to the configuration.
 
     Module loggers

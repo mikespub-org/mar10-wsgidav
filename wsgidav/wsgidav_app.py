@@ -279,7 +279,9 @@ class WsgiDAVApp:
 
         _logger.info(
             "WsgiDAV/{} Python/{} {}".format(
-                __version__, util.PYTHON_VERSION, platform.platform(aliased=True)
+                __version__,
+                util.PYTHON_VERSION,
+                platform.platform(aliased=True),
             )
         )
 

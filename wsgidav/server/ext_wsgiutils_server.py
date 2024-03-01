@@ -67,7 +67,7 @@ from http import server as BaseHTTPServer
 from io import StringIO
 from urllib.parse import urlparse
 
-from wsgidav import __version__, util
+from wsgidav import util
 
 _logger = util.get_module_logger(__name__)
 
@@ -88,7 +88,6 @@ SERVER_ERROR = """\
 
 
 class ExtHandler(BaseHTTPServer.BaseHTTPRequestHandler):
-
     _SUPPORTED_METHODS = [
         "HEAD",
         "GET",
@@ -109,8 +108,8 @@ class ExtHandler(BaseHTTPServer.BaseHTTPRequestHandler):
     # Enable automatic keep-alive:
     protocol_version = "HTTP/1.1"
 
-    server_version = "WsgiDAV/{} ExtServer/{} {}".format(
-        __version__,
+    server_version = "{} ExtServer/{} {}".format(
+        util.public_wsgidav_info,
         _version,
         BaseHTTPServer.BaseHTTPRequestHandler.server_version,
     )
@@ -261,13 +260,13 @@ class ExtHandler(BaseHTTPServer.BaseHTTPRequestHandler):
             self.end_headers()
             self.wsgiSentHeaders = 1
         # Send the data
-        assert type(data) is bytes  # If not, Content-Length is propably wrong!
+        assert type(data) is bytes  # If not, Content-Length is probably wrong!
         _logger.debug(
             "wsgiWriteData: write {} bytes: '{!r}'...".format(
                 len(data), util.to_str(data[:50])
             )
         )
-        if util.is_str(data):  # If not, Content-Length is propably wrong!
+        if util.is_str(data):  # If not, Content-Length is probably wrong!
             _logger.info("ext_wsgiutils_server: Got unicode data: {!r}".format(data))
             # data = util.wsgi_to_bytes(data)
             data = util.to_bytes(data)
