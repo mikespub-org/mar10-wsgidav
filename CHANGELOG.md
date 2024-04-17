@@ -1,11 +1,21 @@
 # Changelog
 
-## 4.3.1 / Unreleased
+## 4.3.3 / Unreleased
+
+## 4.3.2 / 2024-03-29
+
+- [#318](https://github.com/mar10/wsgidav/issues/318) Error when used with lxml
+- Test with Python 3.12
+- Update to black 24.3
+- Use ruff instead of flake8
+
+## 4.3.1 / 2024-03-24
 
 - New option `suppress_version_info` to suppress WsgiDAV's version info in
   responses (default: false).
 - #298: `--root` argument honors `fs_dav_provider` configuration.
 - #301: `_DAVResource` should have `is_link()` method to avoid dir_browser issues.
+- #308: remove defusedxml dependency.
 
 ## 4.3.0 / 2023-09-24
 
