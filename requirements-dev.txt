@@ -3,7 +3,7 @@
 -r requirements.txt
 
 cheroot~=8.5
-Paste~=2.0
+Paste~=3.10
 black~=24.3
 pytest~=2.7
 pytest-cov~=1.8
