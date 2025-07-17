@@ -10,7 +10,7 @@ written in Python and based on `WSGI <http://www.python.org/dev/peps/pep-3333/>`
 :Project:   https://github.com/mar10/wsgidav/
 :Version:   |version|, Date: |today|
 
-|travis_badge| |nbsp| |pypi_badge| |nbsp| |lic_badge| |nbsp| |rtd_badge|
+|gh_badge| |nbsp| |pypi_badge| |nbsp| |lic_badge| |nbsp| |rtd_badge|
 
 .. toctree::
    :hidden:
@@ -82,6 +82,19 @@ Windows NT Domain Controller) like so::
 
 There is much more to configure. Read this docs to find out.
 
+**Docker**
+An experimental Docker image that exposes a local directory using WebDAV
+is available here: https://hub.docker.com/r/mar10/wsgidav/
+
+::
+
+    $ docker pull mar10/wsgidav
+    $ docker run --rm -it -p <PORT>:8080 -v <ROOT_FOLDER>:/var/wsgidav-root mar10/wsgidav
+
+for example::
+
+    $ docker run --rm -it -p 8080:8080 -v c:/temp:/var/wsgidav-root mar10/wsgidav
+
 
 Supported Clients
 =================
@@ -99,9 +112,9 @@ WsgiDAV comes with a web interface and was tested with different clients
 
 .. |logo| image:: logo.png
 
-.. |travis_badge| image:: https://travis-ci.com/mar10/wsgidav.svg?branch=master
+.. |gh_badge| image:: https://github.com/mar10/wsgidav/actions/workflows/tests.yml/badge.svg
    :alt: Build Status
-   :target: https://app.travis-ci.com/github/mar10/wsgidav
+   :target: https://github.com/mar10/wsgidav/actions/workflows/tests.yml
 
 .. |pypi_badge| image:: https://img.shields.io/pypi/v/wsgidav.svg
    :alt: PyPI Version
