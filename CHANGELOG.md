@@ -1,11 +1,25 @@
 # Changelog
 
-## 4.3.4 / Unreleased
+## 4.4.0 / Unreleased
 
-- Test with Python 3.13
-- Use ruff instead of black/isort
 - [#343](https://github.com/mar10/wsgidav/issues/343) 
   Add experimental middleware for impersonation (@leo9800)
+- [#348](https://github.com/mar10/wsgidav/issues/348) 
+  Optionally set file/directory modification time when x-oc-mtime header presence (@leo9800)
+- [#352](https://github.com/mar10/wsgidav/pull/352)
+  Apache htpasswd based domain controller (@leo9800)
+- [#354](https://github.com/mar10/wsgidav/pull/354)
+  New option `default_charset`, defaults to 'utf-8' (@leo9800)
+- [#355](https://github.com/mar10/wsgidav/pull/355)
+  Fix `directory_slash` functionality by correctly retrieving current path (@leo9800)
+- [#356](https://github.com/mar10/wsgidav/pull/356)
+  Domain controller for apache .htdigest files (@leo9800)
+- Test with Python 3.13
+- Use ruff instead of black/isort
+
+## 4.3.4 / 2026-05-24
+
+- Resolve security advisory [CVE-2026-48099](https://github.com/mar10/wsgidav/security/advisories/GHSA-wxq4-cc2q-338q)
 
 ## 4.3.3 / 2024-05-04
 
