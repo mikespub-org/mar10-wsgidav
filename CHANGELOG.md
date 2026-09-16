@@ -3,7 +3,7 @@
 ## 4.4.0 / Unreleased
 
 - [#343](https://github.com/mar10/wsgidav/issues/343) 
-  Add experimental middleware for impersonation (@leo9800)
+  Add experimental sample middleware for impersonation (@leo9800)
 - [#348](https://github.com/mar10/wsgidav/issues/348) 
   Optionally set file/directory modification time when x-oc-mtime header presence (@leo9800)
 - [#352](https://github.com/mar10/wsgidav/pull/352)
@@ -16,6 +16,27 @@
   Domain controller for apache .htdigest files (@leo9800)
 - Test with Python 3.13
 - Use ruff instead of black/isort
+
+## 4.3.6 / Unreleased
+
+- [#369](https://github.com/mar10/wsgidav/pull/369)
+  do_LOCK sends invalid Content-Type and Lock header
+- [#365](https://github.com/mar10/wsgidav/pull/365)
+  CORS: Access-Control-Expose-Headers is sent on the preflight response instead of the actual response (@padawan)
+- Fix TOCTOU race in `PUT` handling that allowed a resource to be overwritten
+  after another principal acquired an exclusive write lock, without holding
+  the lock token ([CWE-367](https://cwe.mitre.org/data/definitions/367.html)) (@q1yZh)
+- Fix unauthenticated access to protected shares via share-route / path-normalization mismatch (@gh0stsh3ll56)
+- Use secrets module for generating lock tokens instead of random (@Un-Locksmith)
+- Fix digest authentication nonce generation and comparison (@jankesec)
+
+## 4.3.5 / 2026-06-27
+
+- Fix Blind SQL injection in WsgiDAV MySQL provider [CVE-2026-55509](https://github.com/mar10/wsgidav/security/advisories/GHSA-p6gw-4frg-j7jw)
+  Note: The MySQLBrowserProvider module is only provided as an example for WsgiDAV and not enabled by default.
+  Installations that do not explicitly activate the module in their configuration are not affected by this vulnerability.  
+- Harden 'follow_symlinks=false' [CVE-2026-55560](https://github.com/mar10/wsgidav/security/advisories/GHSA-wm65-64rq-rh8r)
+
 
 ## 4.3.4 / 2026-05-24
 

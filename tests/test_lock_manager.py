@@ -4,6 +4,7 @@
 """Unit test for lock_manager.py"""
 
 import os
+import sys
 import unittest
 from tempfile import gettempdir
 from time import sleep
@@ -366,6 +367,93 @@ class BasicTest(unittest.TestCase):
         )
         assert lock is None, "Could acquire a conflicting child lock (same principal)"
 
+    def testWriteTransactionBlocksLock(self):
+        """A pending write transaction must block a conflicting LOCK request.
+
+        Regression test for a TOCTOU race (CWE-367): without this guard, a
+        LOCK could be granted to another principal in the window between the
+        write-permission check and the completion of a PUT's request body.
+        """
+        lm = self.lm
+        url = "/dav/res"
+
+        lm._begin_write_transaction(url=url, token_list=[], principal=self.principal)
+        try:
+            self.assertRaises(
+                DAVError,
+                lm.acquire,
+                url=url,
+                lock_type="write",
+                lock_scope="exclusive",
+                lock_depth="0",
+                lock_owner=self.owner,
+                timeout=self.timeout,
+                principal="another principal",
+                token_list=[],
+            )
+        finally:
+            lm._end_write_transaction(url)
+
+        # Once the write transaction ends, locking succeeds again.
+        lock = self._acquire(
+            url,
+            "write",
+            "exclusive",
+            "0",
+            self.owner,
+            self.timeout,
+            "another principal",
+            [],
+        )
+        assert lock is not None, "Lock should succeed after write transaction ends"
+
+    def testLockBlocksWriteTransaction(self):
+        """An existing lock must prevent a conflicting write transaction."""
+        lm = self.lm
+        url = "/dav/res"
+        token_list = []
+
+        lock = self._acquire(
+            url,
+            "write",
+            "exclusive",
+            "0",
+            self.owner,
+            self.timeout,
+            self.principal,
+            token_list,
+        )
+        assert lock is not None
+
+        self.assertRaises(
+            DAVError,
+            lm._begin_write_transaction,
+            url=url,
+            token_list=[],
+            principal="another principal",
+        )
+
+    def testWriteTransactionContextReleasesMarker(self):
+        """A write transaction context must release its marker on failure."""
+        lm = self.lm
+        url = "/dav/res"
+
+        with self.assertRaises(RuntimeError):
+            with lm.write_transaction(url=url, token_list=[], principal=self.principal):
+                raise RuntimeError("write failed")
+
+        lock = self._acquire(
+            url,
+            "write",
+            "exclusive",
+            "0",
+            self.owner,
+            self.timeout,
+            "another principal",
+            [],
+        )
+        assert lock is not None, "Lock should succeed after context exits"
+
 
 # ========================================================================
 # ShelveTest
@@ -374,11 +462,9 @@ class ShelveTest(BasicTest):
     """Test lock_manager.ShelveLockManager()."""
 
     def setUp(self):
-        # if sys.version_info < (3, 0):
-        #     modifier = "-py2"  # shelve formats are incompatible
-        # else:
-        #     modifier = "-py3"
-        modifier = "-py3"
+        # shelve formats may be incompatible
+        version_info = sys.version_info
+        modifier = "-py{}{}".format(*version_info[:2])
         self.path = os.path.join(gettempdir(), f"wsgidav-locks{modifier}.shelve")
         storage = lock_storage.LockStorageShelve(self.path)
         self.lm = lock_manager.LockManager(storage)
